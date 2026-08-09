@@ -3,12 +3,13 @@ import argon2 from "argon2";
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, getTableColumns } from "drizzle-orm";
 import {
     authAccounts,
     authProviders,
     db,
     users,
+    workspaceMembers,
     workspaces,
 } from "@db";
 import {
@@ -83,10 +84,25 @@ export async function GET(request: NextRequest) {
         user = createdUser;
     }
 
-    const [workspace] = await db
+    // Same rule as getWorkspaceRedirectUrl: fall back to a joined workspace so
+    // a member-only user is not bounced back to the login screen.
+    let [workspace] = await db
         .select()
         .from(workspaces)
-        .where(eq(workspaces.ownerId, user.id));
+        .where(eq(workspaces.ownerId, user.id))
+        .limit(1);
+
+    if (!workspace) {
+        [workspace] = await db
+            .select({ ...getTableColumns(workspaces) })
+            .from(workspaces)
+            .innerJoin(
+                workspaceMembers,
+                eq(workspaceMembers.workspaceId, workspaces.id),
+            )
+            .where(eq(workspaceMembers.userId, user.id))
+            .limit(1);
+    }
 
     if (!workspace) {
         return NextResponse.redirect(new URL("/auth/login", process.env.WEB_URL!));

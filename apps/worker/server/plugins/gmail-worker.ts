@@ -43,7 +43,10 @@ async function enqueueDeltaSyncForAllGoogleIdentities() {
             {
                 jobId: `gmail-delta-sync-${row.identityId}`,
                 removeOnComplete: true,
-                removeOnFail: false,
+                // must be true: a failed job keeps its jobId in Redis and
+                // silently swallows every later enqueue with the same id,
+                // which permanently wedges delta sync for that identity.
+                removeOnFail: true,
                 attempts: 3,
                 backoff: {
                     type: "exponential",

@@ -170,24 +170,31 @@ export const updateWorkSpaceContext = async (workspacePublicId: string, id: stri
     if (member){
         role = member.role as WorkspaceRolesListType
     }
+    // Must outlive the browser session: the `session` cookie lasts 30 days, so
+    // without an explicit maxAge here the workspace context would be dropped on
+    // browser restart while the user stayed signed in.
+    const workspaceCookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax" as const,
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+    }
     cookieStore.set({
         name: 'workspaceId',
         value: id,
-        httpOnly: true,
-        path: '/',
+        ...workspaceCookieOptions,
     })
     cookieStore.set({
         name: 'workspacePublicId',
         value: workspacePublicId,
-        httpOnly: true,
-        path: '/',
+        ...workspaceCookieOptions,
     })
     if (role){
         cookieStore.set({
             name: 'workspaceRole',
             value: String(role),
-            httpOnly: true,
-            path: '/',
+            ...workspaceCookieOptions,
         })
     }
 };

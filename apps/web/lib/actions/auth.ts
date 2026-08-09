@@ -271,6 +271,9 @@ export const currentSession = async () => {
 export const signOut = async (redirectUrl?: string) => {
 	const cookieStore = await cookies();
 	cookieStore.delete("session");
+	cookieStore.delete("workspaceId");
+	cookieStore.delete("workspacePublicId");
+	cookieStore.delete("workspaceRole");
 	redirect(redirectUrl ? redirectUrl : "/auth/login");
 };
 
@@ -286,31 +289,60 @@ export async function createSessionForUser(userId: string) {
 	await setAuthToken(token);
 }
 
-export async function getWorkspaceRedirectUrl(user: typeof users.$inferSelect, locale?: string) {
-	const [workspace] = await db
-		.select()
-		.from(workspaces)
-		.where(eq(workspaces.ownerId, user.id));
+// Owned workspaces win, but a user who only ever joined someone else's
+// workspace still needs somewhere to land instead of bouncing to login.
+// Not exported: this file is "use server", so an export would become a
+// publicly callable action taking an arbitrary user id.
+async function resolvePrimaryWorkspace(userId: string) {
+	const columns = {
+		id: workspaces.id,
+		publicId: workspaces.publicId,
+		defaultIdentityId: workspaces.defaultIdentityId,
+	};
 
-	if (!workspace) {
+	const [owned] = await db
+		.select(columns)
+		.from(workspaces)
+		.where(eq(workspaces.ownerId, userId))
+		.limit(1);
+
+	if (owned) return owned;
+
+	const [joined] = await db
+		.select(columns)
+		.from(workspaces)
+		.innerJoin(
+			workspaceMembers,
+			eq(workspaceMembers.workspaceId, workspaces.id),
+		)
+		.where(eq(workspaceMembers.userId, userId))
+		.limit(1);
+
+	return joined ?? null;
+}
+
+export async function getWorkspaceRedirectUrl(user: typeof users.$inferSelect, locale?: string) {
+	const target = await resolvePrimaryWorkspace(user.id);
+
+	if (!target) {
 		return "/auth/login";
 	}
 
-	await updateWorkSpaceContext(workspace.publicId, workspace.id, user);
+	await updateWorkSpaceContext(target.publicId, target.id, user);
 
-	if (workspace.defaultIdentityId) {
+	if (target.defaultIdentityId) {
 		const [defaultIdentity] = await db
 			.select()
 			.from(identities)
-			.where(eq(identities.id, workspace.defaultIdentityId));
+			.where(eq(identities.id, target.defaultIdentityId));
 
 		if (defaultIdentity) {
 			if (locale) {
-				redirect(withLocale(locale,`/w/${workspace.publicId}/dashboard/platform/overview`));
+				redirect(withLocale(locale,`/w/${target.publicId}/dashboard/platform/overview`));
 			}
-			return `/w/${workspace.publicId}/dashboard/mail/${defaultIdentity.publicId}/inbox`;
+			return `/w/${target.publicId}/dashboard/mail/${defaultIdentity.publicId}/inbox`;
 		}
 	}
 
-	return `/w/${workspace.publicId}/dashboard/platform/overview`;
+	return `/w/${target.publicId}/dashboard/platform/overview`;
 }

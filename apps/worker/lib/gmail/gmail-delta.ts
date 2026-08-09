@@ -21,6 +21,7 @@ import slugify from "@sindresorhus/slugify";
 import {nanoid} from "nanoid";
 
 const GMAIL_SYSTEM_LABEL_IDS = new Set([
+    "CHAT",
     "INBOX",
     "SENT",
     "TRASH",
@@ -66,6 +67,34 @@ async function cleanupOrphanGmailLabelParents(identityId: string) {
             .delete(labels)
             .where(inArray(labels.id, rows.map((r) => r.id)));
     }
+}
+
+async function resolveUniqueLabelSlug(opts: {
+    workspaceId: string;
+    base: string;
+    excludeLabelId?: string;
+}) {
+    const base = opts.base || "label";
+
+    for (let attempt = 0; attempt < 50; attempt++) {
+        const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`;
+
+        const [taken] = await db
+            .select({ id: labels.id })
+            .from(labels)
+            .where(
+                and(
+                    eq(labels.workspaceId, opts.workspaceId),
+                    eq(labels.scope, "thread"),
+                    eq(labels.slug, candidate),
+                ),
+            )
+            .limit(1);
+
+        if (!taken || taken.id === opts.excludeLabelId) return candidate;
+    }
+
+    return `${base}-${nanoid(6).toLowerCase()}`;
 }
 
 async function syncGmailLabels(opts: { gmail: any; identity: any }) {
@@ -116,7 +145,7 @@ async function syncGmailLabels(opts: { gmail: any; identity: any }) {
             ? pathToId.get(node.parentPath) ?? null
             : null;
 
-        const slug = slugify(node.name);
+        const baseSlug = slugify(node.name);
 
         let byGmailId: typeof labels.$inferSelect | undefined;
         let byPath: typeof labels.$inferSelect | undefined;
@@ -184,6 +213,11 @@ async function syncGmailLabels(opts: { gmail: any; identity: any }) {
         }
 
         if (!existing) {
+            const slug = await resolveUniqueLabelSlug({
+                workspaceId: identity.workspaceId,
+                base: baseSlug,
+            });
+
             const [inserted] = await db
                 .insert(labels)
                 .values({
@@ -207,6 +241,12 @@ async function syncGmailLabels(opts: { gmail: any; identity: any }) {
 
             existing = inserted;
         } else {
+            const slug = await resolveUniqueLabelSlug({
+                workspaceId: identity.workspaceId,
+                base: baseSlug,
+                excludeLabelId: existing.id,
+            });
+
             await db
                 .update(labels)
                 .set({

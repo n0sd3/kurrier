@@ -412,7 +412,7 @@ export async function backfillGmailAccount(job: any) {
         {
             jobId: `gmail-delta-sync-after-backfill-${identityId}`,
             removeOnComplete: true,
-            removeOnFail: false,
+            removeOnFail: true,
             attempts: 3,
             backoff: {
                 type: "exponential",
