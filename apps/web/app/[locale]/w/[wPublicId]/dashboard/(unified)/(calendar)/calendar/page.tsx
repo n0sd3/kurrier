@@ -11,9 +11,15 @@ import {
 } from "@/lib/actions/calendar";
 import { CalendarViewType } from "@schema";
 import DefaultCalendarContext from "@/components/dashboard/calendars/default-calendar-context";
+import NoCalendarPlaceholder from "@/components/dashboard/calendars/no-calendar-placeholder";
 
 async function Page() {
 	const defaultCalendar = await fetchDefaultCalendar();
+
+	if (!defaultCalendar) {
+		return <NoCalendarPlaceholder />;
+	}
+
 	const view: CalendarViewType = "week";
 
 	const viewParams = { year: undefined, month: undefined, day: undefined };

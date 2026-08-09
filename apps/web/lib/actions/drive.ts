@@ -209,7 +209,7 @@ export async function addNewFolder(
 				});
 		});
 
-		revalidatePath("/w/[workspaceId]/dashboard/drive");
+		revalidatePath("/[locale]/w/[wPublicId]/dashboard/drive", "page");
 
 		return {
 			success: true,
@@ -221,7 +221,7 @@ export async function addNewFolder(
 
 
 export const refreshViewAfterUpload = async () => {
-	return revalidatePath("/w/[workspaceId]/dashboard/drive");
+	return revalidatePath("/[locale]/w/[wPublicId]/dashboard/drive", "page");
 };
 
 function getVolumePrefix(volume: DriveVolumeEntity) {
@@ -483,7 +483,7 @@ export async function deleteDriveEntry(entryId: string) {
 					),
 			);
 
-			revalidatePath("/w/[workspaceId]/dashboard/drive");
+			revalidatePath("/[locale]/w/[wPublicId]/dashboard/drive", "page");
 
 			return {
 				success: true,
@@ -509,7 +509,7 @@ export async function deleteDriveEntry(entryId: string) {
 				),
 		);
 
-		revalidatePath("/w/[workspaceId]/dashboard/drive");
+		revalidatePath("/[locale]/w/[wPublicId]/dashboard/drive", "page");
 
 		return {
 			success: true,

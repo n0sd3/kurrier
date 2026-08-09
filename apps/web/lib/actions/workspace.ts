@@ -121,7 +121,7 @@ export async function toggleDefaultIdentity(
     return handleAction(async () => {
         const decodedForm = decode(formData) as Record<string, unknown>;
         await setWorkspaceDefaultIdentity(String(decodedForm.identityId));
-        revalidatePath("/w/[wPublicId]/dashboard/platform/identities", "page");
+        revalidatePath("/[locale]/w/[wPublicId]/dashboard/platform/identities", "page");
         return { success: true };
     });
 }
@@ -137,7 +137,7 @@ export async function updateWorkspace(
         await rls((tx) =>
             tx.update(workspaces).set({name: String(decodedForm.name)})
         );
-        revalidatePath("/w/[wPublicId]/dashboard/platform/workspace", "page");
+        revalidatePath("/[locale]/w/[wPublicId]/dashboard/platform/workspace", "page");
         return { success: true, message: "Workspace Updated" };
     });
 }

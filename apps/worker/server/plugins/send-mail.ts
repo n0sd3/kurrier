@@ -196,28 +196,37 @@ export default defineNitroPlugin(async (nitroApp) => {
 				throw new Error("Mailbox not found");
 			}
 
-			const [secrets] = mailbox.identity.providerId
-				? await decryptAdminSecrets({
-					linkTable: providerSecrets,
-					foreignCol: providerSecrets.providerId,
-					secretIdCol: providerSecrets.secretId,
-					ownerId: mailbox.identity.ownerId,
-					parentId: String(mailbox.identity.providerId),
-				})
-				: await decryptAdminSecrets({
-					linkTable: smtpAccountSecrets,
-					foreignCol: smtpAccountSecrets.accountId,
-					secretIdCol: smtpAccountSecrets.secretId,
-					ownerId: mailbox.identity.ownerId,
-					parentId: String(mailbox.identity.smtpAccountId),
-				});
+			const isGoogle =
+				(mailbox.identity.metaData as any)?.provider === "google";
 
-			const credentials = secrets?.vault?.decrypted_secret
-				? JSON.parse(secrets.vault.decrypted_secret)
-				: {};
+			const [secrets] = isGoogle
+				? []
+				: mailbox.identity.providerId
+					? await decryptAdminSecrets({
+						linkTable: providerSecrets,
+						foreignCol: providerSecrets.providerId,
+						secretIdCol: providerSecrets.secretId,
+						ownerId: mailbox.identity.ownerId,
+						parentId: String(mailbox.identity.providerId),
+					})
+					: await decryptAdminSecrets({
+						linkTable: smtpAccountSecrets,
+						foreignCol: smtpAccountSecrets.accountId,
+						secretIdCol: smtpAccountSecrets.secretId,
+						ownerId: mailbox.identity.ownerId,
+						parentId: String(mailbox.identity.smtpAccountId),
+					});
+
+			// Google identities authenticate through OAuth, not a vault secret:
+			// GoogleMailer resolves the account tokens from the identity itself.
+			const credentials = isGoogle
+				? { identityId: mailbox.identity.id }
+				: secrets?.vault?.decrypted_secret
+					? JSON.parse(secrets.vault.decrypted_secret)
+					: {};
 
 			const mailer = createMailer(
-				mailbox.provider ? mailbox.provider.type : "smtp",
+				isGoogle ? "google" : mailbox.provider ? mailbox.provider.type : "smtp",
 				credentials,
 			);
 

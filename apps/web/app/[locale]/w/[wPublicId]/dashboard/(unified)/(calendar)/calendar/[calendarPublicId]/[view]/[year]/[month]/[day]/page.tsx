@@ -14,6 +14,7 @@ import DayGrid from "@/components/dashboard/calendars/day-view";
 import MonthGrid from "@/components/dashboard/calendars/month-view";
 import DefaultCalendarContext from "@/components/dashboard/calendars/default-calendar-context";
 import {getWorkspacePublicId} from "@/lib/actions/clients";
+import NoCalendarPlaceholder from "@/components/dashboard/calendars/no-calendar-placeholder";
 
 async function Page({
 	params,
@@ -28,6 +29,10 @@ async function Page({
 }) {
 	const resolvedParams = await params;
 	const defaultCalendar = await fetchDefaultCalendar(resolvedParams.calendarPublicId);
+
+	if (!defaultCalendar) {
+		return <NoCalendarPlaceholder />;
+	}
 
 	const view: CalendarViewType =
 		(resolvedParams.view as CalendarViewType) || "week";

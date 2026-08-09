@@ -11,6 +11,7 @@ import {
 import type { CalendarViewType } from "@schema";
 import DayGrid from "@/components/dashboard/calendars/day-view";
 import DefaultCalendarContext from "@/components/dashboard/calendars/default-calendar-context";
+import NoCalendarPlaceholder from "@/components/dashboard/calendars/no-calendar-placeholder";
 
 async function Page({
 	params,
@@ -25,6 +26,10 @@ async function Page({
 }) {
 	const resolvedParams = await params;
 	const defaultCalendar = await fetchDefaultCalendar();
+
+	if (!defaultCalendar) {
+		return <NoCalendarPlaceholder />;
+	}
 
 	const view: CalendarViewType =
 		(resolvedParams.view as CalendarViewType) || "week";

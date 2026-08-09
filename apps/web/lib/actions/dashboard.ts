@@ -58,7 +58,10 @@ import {workspaceIdentityMembers} from "@db";
 import {s3} from "@/lib/create-s3-client";
 import {CreateBucketCommand} from "@aws-sdk/client-s3";
 
-const DASHBOARD_PATH = "/w/[workspaceId]/dashboard/providers";
+// Must mirror the real route pattern, including the [locale] segment and the
+// "platform" prefix, or revalidatePath silently matches nothing.
+const DASHBOARD_PATH = "/[locale]/w/[wPublicId]/dashboard/platform/providers";
+const IDENTITIES_PATH = "/[locale]/w/[wPublicId]/dashboard/platform/identities";
 const CURRENT_API_VERSION = 1;
 
 export const syncProviders = async () => {
@@ -107,7 +110,7 @@ export async function upsertProviderAccount(
 			});
 		}
 
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 
 		return {
 			success: true,
@@ -182,7 +185,7 @@ export async function upsertSMTPAccount(
 			);
 		}
 
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 
 		return {
 			success: true,
@@ -282,7 +285,7 @@ export const deleteSmtpAccount = async (id: string): Promise<FormState> => {
 				await tx.delete(smtpAccounts).where(eq(smtpAccounts.id, id))
 			}
 		});
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 		return {
 			success: true,
 			message: "Deleted SMTP account",
@@ -306,7 +309,7 @@ export const verifySmtpAccount = async (
 		await updateSecret(session, workspaceId, smtpSecret.metaId, {
 			value: JSON.stringify(parsedVaultValues),
 		});
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 		return {
 			success: res.ok,
 			message: res.message,
@@ -406,7 +409,7 @@ export async function addNewDomainIdentity(
 			return tx.insert(identities).values(payload as IdentityCreate)
 		});
 		// await addIdentityOwnerGrant(domainIdentity)
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 
 		return { success: true, message: "Added new identity", data };
 	});
@@ -451,7 +454,7 @@ export async function verifyDomainIdentity(
 				})
 				.where(eq(identities.id, userDomainIdentity?.identities.id)),
 		);
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 		return {
 			success: true,
 			data: response,
@@ -492,6 +495,19 @@ const initializeEmailIdentity = async (
 	});
 };
 
+const bootstrapIdentityDav = async (
+	identityId: string,
+	userId: string,
+	workspaceId: string,
+) => {
+	const { davQueue } = await getRedis();
+	await davQueue.add(
+		"dav:create-identity",
+		{ identityId, userId, workspaceId },
+		{ jobId: `identity-dav-bootstrap-${identityId}` },
+	);
+};
+
 export const initializeMailboxes = async (emailIdentity: IdentityEntity, userId: string, workspaceId: string) => {
 	if (emailIdentity.kind !== "email") return;
 
@@ -500,6 +516,9 @@ export const initializeMailboxes = async (emailIdentity: IdentityEntity, userId:
 			emailIdentity.id,
 			emailIdentity.workspaceId,
 		);
+		// Gmail mailboxes come from the Gmail API, but the calendar and address
+		// book still need to be provisioned in DAV like any other identity.
+		await bootstrapIdentityDav(emailIdentity.id, userId, workspaceId);
 		return;
 	}
 
@@ -521,8 +540,7 @@ export const initializeMailboxes = async (emailIdentity: IdentityEntity, userId:
 	const rls = await rlsClient();
 	await rls(async (tx) => {
 		await tx.insert(mailboxes).values(rows).onConflictDoNothing().returning();
-		const { davQueue } = await getRedis();
-		await davQueue.add("dav:create-identity", { identityId: emailIdentity.id, userId, workspaceId }, { jobId: `identity-dav-bootstrap-${emailIdentity.id}` });
+		await bootstrapIdentityDav(emailIdentity.id, userId, workspaceId);
 		return
 	});
 	return rows;
@@ -681,7 +699,10 @@ export async function addNewEmailIdentity(
 				console.error("[GOOGLE MAILBOX INIT FAILED]", err);
 			}
 
-			revalidatePath(DASHBOARD_PATH);
+			revalidatePath(DASHBOARD_PATH, "page");
+			// The form that calls this lives on the identities page, so that is
+			// the route that has to be revalidated for the new row to show up.
+			revalidatePath(IDENTITIES_PATH, "page");
 
 			return {
 				success: true,
@@ -778,7 +799,8 @@ export async function addNewEmailIdentity(
 			});
 		}
 
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
+		revalidatePath(IDENTITIES_PATH, "page");
 
 		return {
 			success: true,
@@ -885,7 +907,7 @@ export const deleteDomainIdentity = async (
 				.where(eq(identities.id, userDomainIdentity?.identities.id)),
 		);
 
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 
 		return { success: true };
 	});
@@ -967,7 +989,7 @@ export const deleteEmailIdentity = async (
 			.delete(identities)
 			.where(eq(identities.id, identity.id));
 
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 
 		return {
 			success: true,
@@ -1125,7 +1147,7 @@ export const verifyProviderAccount = async (
 			}
 		}
 
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 
 		return { success: true, data: res };
 	});
@@ -1139,7 +1161,9 @@ export const getDashboardStats = async () => {
 	return handleAction(async () => {
 		const rls = await rlsClient();
 		const workspaceRole = await getWorkspaceRole();
-		const isOwner = workspaceRole === "owners";
+		// The workspace_role enum value is "owner" (singular), as compared
+		// everywhere else in the app.
+		const isOwner = workspaceRole === "owner";
 
 		const data = await rls(async (tx) => {
 			const [
@@ -1312,7 +1336,7 @@ export async function addApiKey(
 				.returning(),
 		);
 
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 
 		return {
 			success: true,
@@ -1364,7 +1388,7 @@ export const regenerateDavPassword = async () => {
 	const workspaceId = await getWorkspaceId();
 	const job = await davQueue.add("dav:update-password", { userId: user?.id, workspaceId });
 	await job.waitUntilFinished(davEvents);
-	revalidatePath("/w/[workspaceId]/dashboard/platform/sync-services");
+	revalidatePath("/[locale]/w/[wPublicId]/dashboard/platform/sync-services", "page");
 	return job.returnvalue;
 };
 
@@ -1409,7 +1433,7 @@ export async function addNewVolume(_prev: FormState, formData: FormData) {
 			}),
 		);
 
-		revalidatePath("/w/[workspaceId]/dashboard/platform/storage");
+		revalidatePath("/[locale]/w/[wPublicId]/dashboard/platform/storage", "page");
 
 		return {
 			success: true,
@@ -1457,7 +1481,7 @@ export async function addWebhook(
 				.insert(webhooks)
 				.values(insertPayload as WebhookInsertEntity)
 		);
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 
 		return {
 			success: true,
@@ -1477,7 +1501,7 @@ export const deleteWebhook = async (
 			tx.delete(webhooks).where(eq(webhooks.id, String(data.id))),
 		);
 
-		revalidatePath(DASHBOARD_PATH);
+		revalidatePath(DASHBOARD_PATH, "page");
 		return {
 			success: true,
 		};

@@ -33,6 +33,7 @@ import ProviderBadge from "@/components/dashboard/identities/provider-badge";
 import IsVerifiedStatus from "@/components/dashboard/providers/is-verified-status";
 import { IconCheck, IconCopy, IconSend } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import AddDomainIdentityForm from "@/components/dashboard/identities/add-domain-identity-form";
 import { FormState, IdentityStatus, IdentityStatusMeta } from "@schema";
@@ -106,6 +107,15 @@ export default function MailIdentities({
 	);
 
 	const [query, setQuery] = React.useState("");
+	const router = useRouter();
+
+	// This page renders dynamically (it reads cookies), so there is no server
+	// cache for revalidatePath to invalidate — the stale copy lives in the
+	// client Router Cache. Only router.refresh() clears that.
+	const closeAndRefresh = (modalId: string) => {
+		modals.close(modalId);
+		router.refresh();
+	};
 
 	const initTestEmail = async (
 		userIdentity: FetchUserIdentitiesResult[number],
@@ -147,7 +157,7 @@ export default function MailIdentities({
 						userDomainIdentities={userDomainIdentities}
 						workspaceMembers={workspaceMembers}
 						userEmailIdentities={userEmailIdentities}
-						onCompleted={() => modals.close(openModalId)}
+						onCompleted={() => closeAndRefresh(openModalId)}
 					/>
 				</div>
 			),
@@ -173,7 +183,7 @@ export default function MailIdentities({
 						userDomainIdentities={userDomainIdentities}
 						workspaceMembers={workspaceMembers}
 						userEmailIdentities={userEmailIdentities}
-						onCompleted={() => modals.close(openModalId)}
+						onCompleted={() => closeAndRefresh(openModalId)}
 					/>
 				</div>
 			),
@@ -196,7 +206,7 @@ export default function MailIdentities({
 						providerOptions={providerOptions}
 						providerAccounts={providerAccounts}
 						onCompleted={(res: FormState) => {
-							modals.close(openModalId);
+							closeAndRefresh(openModalId);
 						}}
 					/>
 				</div>
@@ -793,6 +803,10 @@ export default function MailIdentities({
 														) : (
 															<EmailIdentityStatus
 																userIdentity={userIdentity}
+																googleAccount={googleAccounts.find(
+																	(a) =>
+																		a.identityId === userIdentity.identities.id,
+																)}
 															/>
 														)}
 													</div>

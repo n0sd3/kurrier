@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const state = cookieStore.get("google_state")?.value;
 
     if (!codeVerifier || !state) {
-        return NextResponse.redirect(new URL("/auth/login", request.url));
+        return NextResponse.redirect(new URL("/auth/login", process.env.WEB_URL!));
     }
 
     const config = await client.discovery(
@@ -33,14 +33,28 @@ export async function GET(request: NextRequest) {
         process.env.OIDC_GOOGLE_CLIENT_SECRET!
     );
 
-    const tokens = await client.authorizationCodeGrant(
-        config,
-        new URL(request.url),
-        {
+    const callbackUrl = new URL(
+        request.nextUrl.pathname + request.nextUrl.search,
+        process.env.WEB_URL!,
+    );
+
+    let tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers;
+
+    try {
+        tokens = await client.authorizationCodeGrant(config, callbackUrl, {
             pkceCodeVerifier: codeVerifier,
             expectedState: state,
-        },
-    );
+        });
+    } catch (err: any) {
+        console.error("[GOOGLE OIDC CALLBACK FAILED]", {
+            rawUrl: request.url,
+            callbackUrl: callbackUrl.toString(),
+            message: err?.message,
+            code: err?.code,
+            error: err?.error,
+        });
+        return NextResponse.redirect(new URL("/auth/login", process.env.WEB_URL!));
+    }
 
     const claims = tokens.claims();
 
@@ -48,7 +62,7 @@ export async function GET(request: NextRequest) {
     const providerUserId = claims?.sub as string | undefined;
 
     if (!email || !providerUserId) {
-        return NextResponse.redirect(new URL("/auth/login", request.url));
+        return NextResponse.redirect(new URL("/auth/login", process.env.WEB_URL!));
     }
 
     let [user] = await db.select().from(users).where(eq(users.email, email));
@@ -63,7 +77,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (!createdUser || "error" in createdUser) {
-            return NextResponse.redirect(new URL("/auth/login", request.url));
+            return NextResponse.redirect(new URL("/auth/login", process.env.WEB_URL!));
         }
 
         user = createdUser;
@@ -75,7 +89,7 @@ export async function GET(request: NextRequest) {
         .where(eq(workspaces.ownerId, user.id));
 
     if (!workspace) {
-        return NextResponse.redirect(new URL("/auth/login", request.url));
+        return NextResponse.redirect(new URL("/auth/login", process.env.WEB_URL!));
     }
 
     let [googleProvider] = await db
@@ -126,5 +140,7 @@ export async function GET(request: NextRequest) {
 
     const redirectUrl = await getWorkspaceRedirectUrl(user);
 
-    return NextResponse.redirect(new URL(redirectUrl, request.url));
+    // request.url resolves to the container's internal host behind a reverse
+    // proxy, which would send the browser to an unreachable address.
+    return NextResponse.redirect(new URL(redirectUrl, process.env.WEB_URL!));
 }
