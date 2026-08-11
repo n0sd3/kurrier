@@ -3,7 +3,7 @@ import { IconFolderSymlink } from "@tabler/icons-react";
 import { Modal, Button, Select } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMailboxOptions } from "@/hooks/use-mailbox-options";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useDynamicContext } from "@/hooks/use-dynamic-context";
 import type { MailboxEntity } from "@db";
 import {
@@ -21,6 +21,8 @@ function MoveToFolder({
 }) {
 	const [opened, { open, close }] = useDisclosure(false);
 	const params = useParams();
+	const pathname = usePathname();
+	const router = useRouter();
 
 	const entry =
 		identityMailboxes.find(
@@ -53,7 +55,8 @@ function MoveToFolder({
 
 		try {
 			setSubmitting(true);
-			await moveToFolder(ids, active.id, destId, !!active.metaData?.imap, true);
+			await moveToFolder(ids, active.id, destId, !!active.metaData?.imap, true, undefined, pathname);
+			router.refresh();
 			toast.success("Moved to folder");
 			close();
 			setDestId(null);

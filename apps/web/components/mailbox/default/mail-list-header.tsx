@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useEffect, useState } from "react";
-import { MailOpen, RotateCw, Trash2 } from "lucide-react";
+import { Loader2, MailOpen, RefreshCw, RotateCw, Trash2 } from "lucide-react";
 import { useDynamicContext } from "@/hooks/use-dynamic-context";
 import {
 	deleteForever,
@@ -9,10 +9,11 @@ import {
 	FetchMailboxThreadsResult,
 	markAsRead,
 	moveToTrash,
+	resyncGmailMailbox,
 	revalidateMailbox,
 } from "@/lib/actions/mailbox";
 import { ActionIcon, Button, Tooltip } from "@mantine/core";
-import type { MailboxEntity, MailboxSyncEntity } from "@db";
+import type { IdentityEntity, MailboxEntity, MailboxSyncEntity } from "@db";
 import { toast } from "sonner";
 import {
 	AlertDialog,
@@ -30,7 +31,7 @@ import { PublicConfig } from "@schema";
 import { useMediaQuery } from "@mantine/hooks";
 import { clsx } from "clsx";
 import MoveToFolder from "@/components/mailbox/default/move-to-folder";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 function MailListHeader({
 	mailboxThreads,
@@ -38,13 +39,16 @@ function MailListHeader({
 	publicConfig,
 	identityMailboxes,
 	activeMailbox,
+	identity,
 }: {
 	mailboxThreads: FetchMailboxThreadsResult;
 	publicConfig: PublicConfig;
 	identityMailboxes: FetchIdentityMailboxListResult;
 	activeMailbox: MailboxEntity;
 	mailboxSync?: MailboxSyncEntity;
+	identity?: IdentityEntity;
 }) {
+	const isGmailIdentity = !!(identity?.metaData as any)?.gmail?.googleAccountId;
 	const { state, setState } = useDynamicContext<{
 		selectedThreadIds: Set<string>;
 		activeMailbox?: MailboxEntity | null;
@@ -65,71 +69,149 @@ function MailListHeader({
 	const isChecked =
 		selectedSize === mailboxThreads.length && mailboxThreads.length > 0;
 
+	const pathName = usePathname();
+	const router = useRouter();
+
 	const [reloading, setReloading] = useState(false);
 	const reload = async () => {
-		if (mailboxSync) {
-			const identityId = identityIdRef.current;
-			if (!identityId) return;
-			try {
-				setReloading(true);
+		const identityId = identityIdRef.current;
+		try {
+			setReloading(true);
+			if (identityId) {
 				await deltaFetch({ identityId });
-				await revalidateMailbox("/mail");
-			} finally {
-				setReloading(false);
 			}
-		} else {
-			revalidateMailbox("/mail");
+			await revalidateMailbox(pathName);
+			router.refresh();
+			toast.success("Mailbox synced", { position: "bottom-left" });
+		} catch {
+			toast.error("Sync failed", { position: "bottom-left" });
+		} finally {
+			setReloading(false);
 		}
 	};
 
-	const markRead = async () => {
-		await markAsRead(
-			Array.from(state?.selectedThreadIds ?? []),
-			String(mailboxIdRef.current),
-			!!mailboxSync,
-			true,
+	const [resyncing, setResyncing] = useState(false);
+	const resync = async () => {
+		const identityId = identityIdRef.current;
+		if (!identityId) return;
+		const toastId = toast.loading(
+			"Resyncing entire mailbox from Gmail… this can take a few minutes",
+			{ position: "bottom-left" },
 		);
+		try {
+			setResyncing(true);
+			await resyncGmailMailbox(identityId);
+			router.refresh();
+			toast.success("Mailbox resync started — new messages will keep appearing as they sync", {
+				id: toastId,
+				position: "bottom-left",
+			});
+		} catch {
+			toast.error("Failed to start mailbox resync", { id: toastId, position: "bottom-left" });
+		} finally {
+			setResyncing(false);
+		}
 	};
 
+	const [markingRead, setMarkingRead] = useState(false);
+	const markRead = async () => {
+		try {
+			setMarkingRead(true);
+			await markAsRead(
+				Array.from(state?.selectedThreadIds ?? []),
+				String(mailboxIdRef.current),
+				!!mailboxSync,
+				true,
+				pathName,
+			);
+			router.refresh();
+		} catch {
+			toast.error("Failed to mark as read", { position: "bottom-left" });
+		} finally {
+			setMarkingRead(false);
+		}
+	};
+
+	const [bulkDeleting, setBulkDeleting] = useState(false);
 	const deleteThreads = async () => {
 		if (mailboxKind.current === "trash") {
 			await removeTrash();
 			return;
 		}
-		await moveToTrash(
-			Array.from(state?.selectedThreadIds ?? []),
-			String(mailboxIdRef.current),
-			!!mailboxSync,
-			true,
+		const count = state?.selectedThreadIds?.size ?? 0;
+		const toastId = toast.loading(
+			count > 1 ? `Moving ${count} messages to Trash…` : "Moving message to Trash…",
+			{ position: "bottom-left" },
 		);
-		toast.success("Messages moved to Trash", { position: "bottom-left" });
+		try {
+			setBulkDeleting(true);
+			await moveToTrash(
+				Array.from(state?.selectedThreadIds ?? []),
+				String(mailboxIdRef.current),
+				!!mailboxSync,
+				true,
+				undefined,
+				pathName,
+			);
+			router.refresh();
+			toast.success("Messages moved to Trash", { id: toastId, position: "bottom-left" });
+		} catch {
+			toast.error("Failed to move messages to Trash", { id: toastId, position: "bottom-left" });
+		} finally {
+			setBulkDeleting(false);
+		}
 	};
 
 	const removeTrash = async () => {
-		await deleteForever(
-			Array.from(state?.selectedThreadIds ?? []),
-			String(mailboxIdRef.current),
-			!!mailboxSync,
-			true,
+		const count = state?.selectedThreadIds?.size ?? 0;
+		const toastId = toast.loading(
+			count > 1 ? `Deleting ${count} messages forever…` : "Deleting message forever…",
+			{ position: "bottom-left" },
 		);
-		toast.success("Thread deleted forever", { position: "bottom-left" });
+		try {
+			setBulkDeleting(true);
+			await deleteForever(
+				Array.from(state?.selectedThreadIds ?? []),
+				String(mailboxIdRef.current),
+				!!mailboxSync,
+				true,
+				undefined,
+				pathName,
+			);
+			router.refresh();
+			toast.success("Thread deleted forever", { id: toastId, position: "bottom-left" });
+		} catch {
+			toast.error("Failed to delete thread", { id: toastId, position: "bottom-left" });
+		} finally {
+			setBulkDeleting(false);
+		}
 	};
 
+	const [emptyingTrash, setEmptyingTrash] = useState(false);
 	const emptyTrash = async () => {
-		await deleteForever(
-			null,
-			String(mailboxIdRef.current),
-			!!mailboxSync,
-			true,
-			{
-				emptyAll: true,
-			},
-		);
-		toast.success("Trash removed successfully", { position: "bottom-left" });
+		const toastId = toast.loading("Emptying Trash…", { position: "bottom-left" });
+		try {
+			setEmptyingTrash(true);
+			await deleteForever(
+				null,
+				String(mailboxIdRef.current),
+				!!mailboxSync,
+				true,
+				{
+					emptyAll: true,
+				},
+				pathName,
+			);
+			router.refresh();
+			toast.success("Trash removed successfully", { id: toastId, position: "bottom-left" });
+		} catch {
+			toast.error("Failed to empty Trash", { id: toastId, position: "bottom-left" });
+		} finally {
+			setEmptyingTrash(false);
+		}
 	};
 
 	const isMobile = useMediaQuery("(max-width: 768px)");
-	const pathName = usePathname();
 	const isOnSnoozedPage = pathName.split("/").includes("snoozed");
 
 	return (
@@ -170,6 +252,20 @@ function MailListHeader({
 						</ActionIcon>
 					</Tooltip>
 
+					{isGmailIdentity && (
+						<Tooltip label="Full resync from Gmail" withArrow>
+							<ActionIcon
+								variant="subtle"
+								onClick={resync}
+								disabled={resyncing}
+								title="Full resync from Gmail"
+								className="h-8 w-8"
+							>
+								<RefreshCw className={resyncing ? "animate-spin" : ""} size={16} />
+							</ActionIcon>
+						</Tooltip>
+					)}
+
 					<div
 						className={clsx(
 							"inset-0 flex items-center gap-1 transition-opacity",
@@ -185,18 +281,28 @@ function MailListHeader({
 						<button
 							type="button"
 							onClick={deleteThreads}
-							className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs hover:bg-muted"
+							disabled={bulkDeleting}
+							className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
 							title="Delete"
 						>
-							<Trash2 className="h-4 w-4" />
+							{bulkDeleting ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<Trash2 className="h-4 w-4" />
+							)}
 						</button>
 						<button
 							type="button"
 							onClick={markRead}
-							className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs hover:bg-muted"
+							disabled={markingRead}
+							className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
 							title="Mark read"
 						>
-							<MailOpen className="h-4 w-4" />
+							{markingRead ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<MailOpen className="h-4 w-4" />
+							)}
 						</button>
 					</div>
 
@@ -216,7 +322,9 @@ function MailListHeader({
 					</span>
 					<AlertDialog>
 						<AlertDialogTrigger asChild={true} className={"-mx-2"}>
-							<Button variant={"transparent"}>Empty Bin Now</Button>
+							<Button variant={"transparent"} loading={emptyingTrash}>
+								Empty Bin Now
+							</Button>
 						</AlertDialogTrigger>
 						<AlertDialogContent>
 							<AlertDialogHeader>

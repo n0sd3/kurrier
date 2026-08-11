@@ -38,7 +38,7 @@ export default function WebmailList({
 }: WebListProps) {
 	const {labelsByThreadId, mailboxThreads} = use(mailboxThreadPromise)
 	const globalLabels = use(globalLabelsPromise)
-	const {mailboxSync, activeMailbox} = use(fetchMailboxPromise)
+	const {mailboxSync, activeMailbox, identity} = use(fetchMailboxPromise)
 	const identityMailboxes = use(identityMailboxesPromise)
 	const isMobile = useMediaQuery("(max-width: 768px)");
 	const params = useParams();
@@ -65,6 +65,7 @@ export default function WebmailList({
 							publicConfig={publicConfig}
 							identityMailboxes={identityMailboxes}
 							activeMailbox={activeMailbox}
+							identity={identity}
 						/>
 
 						<ul role="list" className={`divide-y rounded-4xl`}>

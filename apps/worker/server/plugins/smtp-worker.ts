@@ -23,6 +23,7 @@ import {eq} from "drizzle-orm";
 import { isGmailMailbox, isGmailThread } from "@common";
 import { moveGmailMail } from "../../lib/gmail/gmail-move";
 import { gmailSetFlags } from "../../lib/gmail/gmail-flags";
+import { deleteGmailMail } from "../../lib/gmail/gmail-delete";
 
 export default defineNitroPlugin(async (nitroApp) => {
 	console.info("**********************SMTP-WORKER***************************");
@@ -86,6 +87,12 @@ export default defineNitroPlugin(async (nitroApp) => {
 					},
 				);
 			} else if (job.name === "mail:delete-permanent") {
+				const isGmail = await isGmailMailbox(job.data.mailboxId);
+
+				if (isGmail) {
+					await deleteGmailMail(job.data);
+				}
+
 				await deleteMail(job.data, imapInstances);
 			} else if (job.name === "smtp:append:sent") {
 			} else if (job.name === "imap:backfill-account") {

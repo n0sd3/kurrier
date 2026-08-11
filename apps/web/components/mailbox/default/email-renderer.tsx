@@ -13,7 +13,7 @@ import EditorAttachmentItem from "@/components/mailbox/default/editor/editor-att
 import { PublicConfig } from "@schema";
 import {fetchMailbox, FetchThreadMailSubsResult, markAsRead} from "@/lib/actions/mailbox";
 import {getRawMessageDownloadUrl} from "@/lib/actions/uploads-actions";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useDisclosure } from "@mantine/hooks";
 import MailUnsubscriber from "@/components/mailbox/default/mail-unsubscriber";
 const InspectorBar = dynamic(
@@ -140,6 +140,8 @@ function EmailRenderer({
 		undefined,
 	);
 	const params = useParams();
+	const pathname = usePathname();
+	const router = useRouter();
 	const fetchSentMailbox = async () => {
 		const { activeMailbox } = await fetchMailbox(
 			String(params.identityPublicId),
@@ -157,7 +159,9 @@ function EmailRenderer({
 
 	useEffect(() => {
 		if (activeMailboxId) {
-			markAsRead(threadId, activeMailboxId, markSmtp, true);
+			markAsRead(threadId, activeMailboxId, markSmtp, true, pathname).then(() => {
+				router.refresh();
+			});
 		}
 	}, [activeMailboxId]);
 

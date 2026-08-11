@@ -135,14 +135,16 @@ export default function WebmailListItemMobile({
 				/>
 				<button
 					aria-label="Star"
-					onClick={(e) => {
+					onClick={async (e) => {
 						e.stopPropagation();
-						toggleStar(
+						await toggleStar(
 							mailboxThreadItem.threadId,
 							activeMailbox.id,
 							mailboxThreadItem.starred,
 							!!mailboxSync,
+							pathname,
 						);
+						router.refresh();
 					}}
 					className="text-muted-foreground hover:text-foreground mt-[1px]"
 				>
@@ -198,14 +200,16 @@ export default function WebmailListItemMobile({
 			>
 				{canMarkAsUnread && (
 					<button
-						onClick={async () =>
-							markAsUnread(
+						onClick={async () => {
+							await markAsUnread(
 								mailboxThreadItem.threadId,
 								activeMailbox.id,
 								!!mailboxSync,
 								true,
-							)
-						}
+								pathname,
+							);
+							router.refresh();
+						}}
 						className="rounded p-1 hover:bg-muted"
 						title="Mark as unread"
 					>
@@ -214,13 +218,16 @@ export default function WebmailListItemMobile({
 				)}
 				{canMarkAsRead && (
 					<button
-						onClick={async () =>
-							markAsRead(
+						onClick={async () => {
+							await markAsRead(
 								mailboxThreadItem.threadId,
 								activeMailbox.id,
 								!!mailboxSync,
-							)
-						}
+								true,
+								pathname,
+							);
+							router.refresh();
+						}}
 						className="rounded p-1 hover:bg-muted"
 						title="Mark as read"
 					>
@@ -229,15 +236,24 @@ export default function WebmailListItemMobile({
 				)}
 				<button
 					onClick={async () => {
-						await moveToTrash(
-							mailboxThreadItem.threadId,
-							activeMailbox.id,
-							!!mailboxSync,
-							true,
-						);
-						toast.success("Messages moved to Trash", {
-							position: "bottom-left",
-						});
+						try {
+							await moveToTrash(
+								mailboxThreadItem.threadId,
+								activeMailbox.id,
+								!!mailboxSync,
+								true,
+								undefined,
+								pathname,
+							);
+							router.refresh();
+							toast.success("Messages moved to Trash", {
+								position: "bottom-left",
+							});
+						} catch {
+							toast.error("Failed to move message to Trash", {
+								position: "bottom-left",
+							});
+						}
 					}}
 					className="rounded p-1 hover:bg-muted"
 					title="Delete"

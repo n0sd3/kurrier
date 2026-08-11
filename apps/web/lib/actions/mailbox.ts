@@ -606,6 +606,68 @@ export const backfillGoogleMailboxes = async (
 	);
 };
 
+export const resyncGmailMailbox = async (identityId: string) => {
+	const [identity] = await db
+		.select()
+		.from(identities)
+		.where(eq(identities.id, identityId))
+		.limit(1);
+
+	if (!identity) throw new Error("Identity not found");
+
+	const isGmail = await isGmailIdentity(identityId);
+	if (!isGmail) throw new Error("Not a Gmail account");
+
+	const currentGmailMeta = (identity.metaData as any)?.gmail ?? {};
+
+	await db
+		.update(identities)
+		.set({
+			metaData: {
+				...(identity.metaData ?? {}),
+				gmail: {
+					...currentGmailMeta,
+					backfillCompleted: false,
+					backfill: {
+						startHistoryId: null,
+						currentPageToken: null,
+						restartedAt: new Date().toISOString(),
+					},
+				},
+			},
+			updatedAt: new Date(),
+		} as any)
+		.where(eq(identities.id, identityId));
+
+	const { gmailQueue, gmailEvents } = await getRedis();
+
+	const discoverJob = await gmailQueue.add(
+		"gmail:backfill-discover",
+		{ identityId, workspaceId: identity.workspaceId },
+		{
+			jobId: `gmail-resync-discover-${identityId}-${Date.now()}`,
+			attempts: 3,
+			backoff: { type: "exponential", delay: 1000 },
+			removeOnComplete: true,
+			removeOnFail: true,
+		},
+	);
+
+	await discoverJob.waitUntilFinished(gmailEvents);
+
+	await gmailQueue.add(
+		"gmail:backfill-account",
+		{ identityId, workspaceId: identity.workspaceId },
+		{
+			jobId: `gmail-resync-account-${identityId}-${Date.now()}`,
+			attempts: 3,
+			backoff: { type: "exponential", delay: 1000 },
+			removeOnComplete: true,
+			removeOnFail: true,
+		},
+	);
+};
+
 
 export const backfillAccount = async (identityId: string, workspaceId: string) => {
 	const { smtpQueue } = await getRedis();
@@ -662,6 +724,7 @@ export const markAsRead = async (
 	mailboxId: string,
 	markSmtp: boolean,
 	refresh = true,
+	path?: string,
 ) => {
 	const ids = (Array.isArray(threadIds) ? threadIds : [threadIds])
 		.map(String)
@@ -699,7 +762,7 @@ export const markAsRead = async (
 			}),
 		);
 
-		if (refresh) revalidatePath("/");
+		if (refresh) revalidatePath(path || "/");
 		return;
 	}
 
@@ -728,7 +791,7 @@ export const markAsRead = async (
 			);
 	});
 
-	if (refresh) revalidatePath("/");
+	if (refresh) revalidatePath(path || "/");
 };
 
 export const markAsUnread = async (
@@ -736,6 +799,7 @@ export const markAsUnread = async (
 	mailboxId: string,
 	markSmtp: boolean,
 	refresh: boolean,
+	path?: string,
 ) => {
 	const ids = (Array.isArray(threadIds) ? threadIds : [threadIds])
 		.map(String)
@@ -773,7 +837,7 @@ export const markAsUnread = async (
 			}),
 		);
 
-		if (refresh) revalidatePath("/");
+		if (refresh) revalidatePath(path || "/");
 		return;
 	}
 
@@ -825,7 +889,7 @@ export const markAsUnread = async (
 		}
 	});
 
-	if (refresh) revalidatePath("/");
+	if (refresh) revalidatePath(path || "/");
 };
 
 export const moveToTrash = async (
@@ -834,6 +898,7 @@ export const moveToTrash = async (
 	moveImap: boolean,
 	refresh: boolean,
 	messageId?: string,
+	path?: string,
 ) => {
 	const ids = (Array.isArray(threadIds) ? threadIds : [threadIds])
 		.map(String)
@@ -841,11 +906,11 @@ export const moveToTrash = async (
 
 	if (!ids.length || !mailboxId) return;
 
-	const { smtpQueue, searchIngestQueue } = await getRedis();
+	const { smtpQueue, smtpEvents, searchIngestQueue } = await getRedis();
 
 	await Promise.all(
-		ids.map((threadId) =>
-			smtpQueue.add(
+		ids.map(async (threadId) => {
+			const job = await smtpQueue.add(
 				"mail:move",
 				{ threadId, mailboxId, op: "trash", messageId, moveImap },
 				{
@@ -854,8 +919,9 @@ export const moveToTrash = async (
 					removeOnComplete: true,
 					removeOnFail: false,
 				},
-			),
-		),
+			);
+			await job.waitUntilFinished(smtpEvents);
+		}),
 	);
 
 	await Promise.all(
@@ -875,7 +941,7 @@ export const moveToTrash = async (
 	);
 
 	if (refresh) {
-		revalidatePath("/mail");
+		revalidatePath(path || "/mail");
 	}
 };
 
@@ -884,6 +950,7 @@ export const toggleStar = async (
 	mailboxId: string,
 	starred: boolean,
 	starImap: boolean,
+	path?: string,
 ) => {
 	if (!threadId || !mailboxId) return;
 
@@ -919,7 +986,7 @@ export const toggleStar = async (
 		);
 
 		await job.waitUntilFinished(smtpEvents);
-		revalidatePath("/");
+		revalidatePath(path || "/");
 		return;
 	}
 
@@ -986,7 +1053,7 @@ export const toggleStar = async (
 		},
 	);
 
-	revalidatePath("/");
+	revalidatePath(path || "/");
 };
 
 export const fetchMailboxThreads = async (
@@ -1075,12 +1142,13 @@ export async function deleteForever(
 	imapDelete: boolean,
 	refresh = true,
 	opts?: { emptyAll?: boolean },
+	path?: string,
 ) {
 	const { emptyAll = false } = opts ?? {};
-	const { smtpQueue, searchIngestQueue } = await getRedis();
+	const { smtpQueue, smtpEvents, searchIngestQueue } = await getRedis();
 
 	if (emptyAll) {
-		await smtpQueue.add(
+		const job = await smtpQueue.add(
 			"mail:delete-permanent",
 			{ mailboxId, emptyAll: true, imapDelete },
 			{
@@ -1090,7 +1158,8 @@ export async function deleteForever(
 				removeOnFail: true,
 			},
 		);
-		if (refresh) revalidatePath("/mail");
+		await job.waitUntilFinished(smtpEvents);
+		if (refresh) revalidatePath(path || "/mail");
 		return;
 	}
 
@@ -1102,7 +1171,7 @@ export async function deleteForever(
 
 	await Promise.all(
 		ids.map(async (threadId) => {
-			await smtpQueue.add(
+			const job = await smtpQueue.add(
 				"mail:delete-permanent",
 				{ threadId, mailboxId, imapDelete },
 				{
@@ -1112,6 +1181,7 @@ export async function deleteForever(
 					removeOnFail: true,
 				},
 			);
+			await job.waitUntilFinished(smtpEvents);
 
 			await searchIngestQueue.add(
 				"refresh-thread",
@@ -1127,7 +1197,7 @@ export async function deleteForever(
 		}),
 	);
 
-	if (refresh) revalidatePath("/mail");
+	if (refresh) revalidatePath(path || "/mail");
 }
 
 export async function addNewMailboxFolder(
@@ -1277,6 +1347,7 @@ export const moveToFolder = async (
 	moveImap: boolean, // perform IMAP move when true
 	refresh: boolean,
 	messageId?: string,
+	path?: string,
 ) => {
 	const ids = (Array.isArray(threadIds) ? threadIds : [threadIds])
 		.map(String)
@@ -1331,7 +1402,7 @@ export const moveToFolder = async (
 		),
 	);
 
-	if (refresh) revalidatePath("/mail");
+	if (refresh) revalidatePath(path || "/mail");
 };
 
 export const clearImapClients = async (identityId: string) => {
