@@ -36,6 +36,19 @@ export async function proxy(request: NextRequest) {
 		return NextResponse.redirect(url);
 	}
 
+	// A bare "/<locale>" resolves its destination in app/[locale]/page.tsx, but
+	// that redirect only runs on hydration, so the 404 shell flashes first.
+	// Signed-out visitors need no lookup, so send them straight to login.
+	const isLocaleRoot = locales.some(
+		(locale) => request.nextUrl.pathname === `/${locale}`,
+	);
+
+	if (isLocaleRoot && !request.cookies.get("session")) {
+		const url = request.nextUrl.clone();
+		url.pathname = `${request.nextUrl.pathname}/auth/login`;
+		return NextResponse.redirect(url);
+	}
+
 	return await updateSession(request);
 }
 

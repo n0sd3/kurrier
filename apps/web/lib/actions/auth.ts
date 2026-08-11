@@ -321,7 +321,9 @@ async function resolvePrimaryWorkspace(userId: string) {
 	return joined ?? null;
 }
 
-export async function getWorkspaceRedirectUrl(user: typeof users.$inferSelect, locale?: string) {
+// Only the id is read, so callers holding a narrowed user (isSignedIn) can use
+// this without refetching the full row.
+export async function getWorkspaceRedirectUrl(user: Pick<typeof users.$inferSelect, "id">, locale?: string) {
 	const target = await resolvePrimaryWorkspace(user.id);
 
 	if (!target) {

@@ -1,6 +1,6 @@
 import {cache} from "react";
 import {currentSession, isSignedIn} from "@/lib/actions/auth";
-import {createDrizzleClientInstance, workspaceMembers, workspaces} from "@db";
+import {createDrizzleClientInstance, identities, workspaceMembers, workspaces} from "@db";
 import {cookies} from "next/headers";
 import {and, eq, or} from "drizzle-orm";
 
@@ -22,6 +22,7 @@ const workspaceContextFromDb = cache(async () => {
 			id: workspaces.id,
 			publicId: workspaces.publicId,
 			ownerId: workspaces.ownerId,
+			defaultIdentityId: workspaces.defaultIdentityId,
 			memberRole: workspaceMembers.role,
 		})
 		.from(workspaces)
@@ -45,9 +46,35 @@ const workspaceContextFromDb = cache(async () => {
 	return {
 		id: row.id,
 		publicId: row.publicId,
+		defaultIdentityId: row.defaultIdentityId,
 		role: row.ownerId === userId ? "owner" : row.memberRole ?? "member",
 	};
 });
+
+// Read-only counterpart to getWorkspaceRedirectUrl, which writes the workspace
+// cookies and therefore cannot run during a Server Component render. Safe to
+// call while rendering; the cookies get written on the next action or callback.
+export const resolveLandingPath = async () => {
+	const context = await workspaceContextFromDb();
+	if (!context) return "/auth/login";
+
+	const base = `/w/${context.publicId}/dashboard`;
+
+	if (!context.defaultIdentityId) return `${base}/platform/overview`;
+
+	const session = await currentSession();
+	const { admin } = await createDrizzleClientInstance(session, {});
+
+	const [identity] = await admin
+		.select({ publicId: identities.publicId })
+		.from(identities)
+		.where(eq(identities.id, context.defaultIdentityId))
+		.limit(1);
+
+	return identity
+		? `${base}/mail/${identity.publicId}/inbox`
+		: `${base}/platform/overview`;
+};
 
 export const getWorkspaceId = async () => {
 	const cookieStore = await cookies()

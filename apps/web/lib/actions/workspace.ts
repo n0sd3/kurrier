@@ -157,10 +157,11 @@ export const switchWorkSpace = async (workspacePublicId: string, id: string) => 
 };
 
 
-export const updateWorkSpaceContext = async (workspacePublicId: string, id: string, user?: UserEntity) => {
+// Only the id is read, so a narrowed user (isSignedIn) is enough.
+export const updateWorkSpaceContext = async (workspacePublicId: string, id: string, user?: Pick<UserEntity, "id">) => {
     const cookieStore = await cookies()
     if (!user) {
-        user = await isSignedIn() as UserEntity;
+        user = await isSignedIn() ?? undefined;
     }
     let role: WorkspaceRolesListType = "member"
     const [member] = await db.select().from(workspaceMembers).where(and(
