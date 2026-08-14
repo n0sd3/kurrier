@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { getLocale } from "@/lib/locale";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ConfigProvider } from "@/components/providers/config-provider";
@@ -44,6 +45,7 @@ export default async function RootLayout({
 	children: React.ReactNode;
 }) {
 	const jar = await cookies();
+	const locale = await getLocale();
 	const theme: ThemeName = ThemeNameSchema.catch("indigo").parse(
 		jar.get(THEME_COOKIE)?.value,
 	);
@@ -65,7 +67,7 @@ export default async function RootLayout({
 
 	return (
 		<html
-			lang="en"
+			lang={locale}
 			data-theme={theme}
 			className={`${initialDark ? "dark" : ""}`}
 			{...mantineHtmlProps}

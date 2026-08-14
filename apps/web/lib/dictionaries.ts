@@ -6,6 +6,9 @@ const dictionaries = {
 
     ko: () =>
         import("@/lib/dictionaries/ko.json").then((module) => module.default),
+
+    pt: () =>
+        import("@/lib/dictionaries/pt.json").then((module) => module.default),
 };
 
 export type Locale = keyof typeof dictionaries;

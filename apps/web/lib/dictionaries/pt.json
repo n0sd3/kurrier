@@ -1,0 +1,21 @@
+{
+  "locale": "pt",
+  "auth": {
+    "welcomeBack": "Bem-vindo de volta",
+    "welcome": "Bem-vindo de volta",
+    "email": "E-mail",
+    "password": "Senha",
+    "signIn": "Entrar",
+    "signUp": "Cadastre-se",
+    "matchExact": "As senhas devem ser exatamente iguais.",
+    "noAccount": "Não tem uma conta?",
+    "retype": "Repita a senha",
+    "accountPresent": "Já tem uma conta?",
+    "submit": "Enviar",
+    "continueWith": "Continuar com",
+    "workspaceName": "Nome do espaço de trabalho"
+  },
+  "dashboard": {
+    "overview": "Visão geral"
+  }
+}
