@@ -939,6 +939,36 @@ export const webhooks = pgTable(
 	],
 ).enableRLS();
 
+export const pushSubscriptions = pgTable(
+	"push_subscriptions",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		ownerId: uuid("owner_id")
+			.references(() => users.id, { onDelete: "cascade" })
+			.notNull()
+			.default(authUid),
+
+		endpoint: text("endpoint").notNull(),
+		p256dh: text("p256dh").notNull(),
+		auth: text("auth").notNull(),
+		userAgent: text("user_agent"),
+
+		workspaceId: uuid("workspace_id")
+			.references(() => workspaces.id)
+			.notNull()
+			.default(authWorkspaceId),
+
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(t) => [
+		uniqueIndex("uniq_push_subscription_endpoint").on(t.endpoint),
+		index("ix_push_subscriptions_owner").on(t.ownerId),
+		...workspaceCrudPolicies(t, "push_subscriptions"),
+	],
+).enableRLS();
+
 export const labels = pgTable(
 	"labels",
 	{

@@ -18,7 +18,7 @@ import {
     calendarEventAttendees,
     driveVolumes,
     driveEntries,
-    draftMessages, mailSubscriptions, users, workspaces,
+    draftMessages, mailSubscriptions, users, workspaces, pushSubscriptions,
 } from "./schema";
 import { z } from "zod";
 import {
@@ -80,6 +80,9 @@ export const WebhookUpdateSchema = createUpdateSchema(webhooks);
 export const WebhookCreateSchema = createInsertSchema(webhooks);
 export type WebhookSelectEntity = typeof webhooks.$inferSelect;
 export type WebhookInsertEntity = typeof webhooks.$inferInsert;
+
+export type PushSubscriptionSelectEntity = typeof pushSubscriptions.$inferSelect;
+export type PushSubscriptionInsertEntity = typeof pushSubscriptions.$inferInsert;
 
 export const IdentityUpdateSchema = createUpdateSchema(identities);
 
