@@ -31,6 +31,13 @@ type SearchJob = {
 	ownerId?: string;
 };
 type WebhookJob = { message: any; rawEmail: string };
+type PushJob = {
+	ownerId: string;
+	mailboxId: string;
+	threadId: string;
+	subject: string | null;
+	from: any;
+};
 type ICSJob = {
 	messageId: string;
 	messageAttachmentId: string;
@@ -44,10 +51,11 @@ let searchBuffer: SearchJob[] = [];
 let webhookBuffer: WebhookJob[] = [];
 let icsBuffer: ICSJob[] = [];
 let rulesBuffer: RulesJob[] = [];
+let pushBuffer: PushJob[] = [];
 let flushTimer: any = null;
 
 async function flushBatches() {
-	if (!searchBuffer.length && !webhookBuffer.length && !icsBuffer.length && !rulesBuffer.length)
+	if (!searchBuffer.length && !webhookBuffer.length && !icsBuffer.length && !rulesBuffer.length && !pushBuffer.length)
 		return;
 
 	try {
@@ -114,6 +122,31 @@ async function flushBatches() {
 			}));
 			await commonWorkerQueue.addBulk(jobs);
 			rulesBuffer = [];
+		}
+
+		if (pushBuffer.length) {
+			const byOwner = new Map<string, PushJob[]>();
+			for (const job of pushBuffer) {
+				const existing = byOwner.get(job.ownerId) ?? [];
+				existing.push(job);
+				byOwner.set(job.ownerId, existing);
+			}
+
+			const jobs = [...byOwner.entries()].map(([ownerId, jobsForOwner]) => ({
+				name: "push:notify",
+				data: {
+					ownerId,
+					messages: jobsForOwner.map((j) => ({
+						mailboxId: j.mailboxId,
+						threadId: j.threadId,
+						subject: j.subject,
+						from: j.from,
+					})),
+				},
+			}));
+
+			await commonWorkerQueue.addBulk(jobs);
+			pushBuffer = [];
 		}
 	} catch (err: any) {
 		console.error(
@@ -434,6 +467,13 @@ export async function parseAndStoreEmail(
 	if (mode === "live") {
 		webhookBuffer.push({ message, rawEmail });
 		rulesBuffer.push({ messageId: message.id });
+		pushBuffer.push({
+			ownerId: message.ownerId,
+			mailboxId: message.mailboxId,
+			threadId: message.threadId,
+			subject: message.subject,
+			from: message.from,
+		});
 		if ((webhookBuffer.length >= WEBHOOK_BATCH_SIZE) || (rulesBuffer.length >= RULES_BATCH_SIZE)) {
 			await flushBatches();
 		} else {
