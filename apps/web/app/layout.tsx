@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { getLocale } from "@/lib/locale";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ConfigProvider } from "@/components/providers/config-provider";
 import { AppearanceProvider } from "@/components/providers/appearance-provider";
+import { PwaRegister } from "@/components/common/pwa-register";
 import {
 	MODE_COOKIE,
 	RESOLVED_COOKIE,
@@ -37,6 +38,18 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
 	title: "Kurrier",
 	description: "Mailbox, but nice.",
+	manifest: "/manifest.json",
+	icons: {
+		icon: [
+			{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+			{ url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+		],
+		apple: "/icons/apple-touch-icon.png",
+	},
+};
+
+export const viewport: Viewport = {
+	themeColor: "#2563EB",
 };
 
 export default async function RootLayout({
@@ -91,6 +104,7 @@ export default async function RootLayout({
 						</MantineProvider>
 					</ConfigProvider>
 				</AppearanceProvider>
+				<PwaRegister />
 			</body>
 		</html>
 	);
