@@ -36,6 +36,7 @@ export const ZServerConfig = z.object({
 export const ZPublicConfig = z.object({
 	WEB_URL: z.string("WEB_URL must be present"),
 	DOCS_URL: z.string().optional(),
+	VAPID_PUBLIC_KEY: z.string().optional(),
 	DAV_URL: z.string("DAV_URL must be present"),
 	DISABLE_SIGNUP: z.string().optional().transform((val) => val === "true").default(false),
 });
