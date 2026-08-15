@@ -173,6 +173,7 @@ export default function EditorFooter() {
 													const { url } = await createAttachmentDownloadUrl(
 														attachment.path
 													);
+													if (!url) return;
 
 													window.open(url, "_blank");
 												}}

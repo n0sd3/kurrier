@@ -3,9 +3,10 @@
 
 import {isSignedIn} from "@/lib/actions/auth";
 import {getServerEnv} from "@schema";
-import {GetObjectCommand, PutObjectCommand} from "@aws-sdk/client-s3";
+import {PutObjectCommand} from "@aws-sdk/client-s3";
 import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
 import {s3} from "@/lib/create-s3-client";
+import {storageObjectUrl} from "@/lib/storage-object-access";
 import {db, messages} from "@db";
 import {eq} from "drizzle-orm";
 
@@ -46,32 +47,15 @@ export async function createAttachmentUploadUrl(input: {
 export async function createAttachmentDownloadUrl(path: string) {
     const user = await isSignedIn();
     if (!user) throw new Error("Unauthorized");
-    const { S3_BUCKET } = getServerEnv();
-    const command = new GetObjectCommand({
-        Bucket: S3_BUCKET!,
-        Key: path,
-    });
 
-    const url = await getSignedUrl(s3, command, {
-        expiresIn: 300,
-    });
-
-    return { url };
+    return { url: storageObjectUrl(path) };
 }
 
 export async function getRawMessageDownloadUrl(messageId: string) {
     const [message] = await db.select().from(messages).where(eq(messages.id, messageId))
     if (!message?.rawStorageKey) return { url: null };
-    const { S3_BUCKET } = getServerEnv();
 
-    const command = new GetObjectCommand({
-        Bucket: S3_BUCKET,
-        Key: message.rawStorageKey,
-    });
-
-    const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
-
-    return { url };
+    return { url: storageObjectUrl(message.rawStorageKey) };
 }
 
 

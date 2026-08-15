@@ -24,7 +24,7 @@ import { getCountryDataList, TCountryCode } from "countries-list";
 import ContactListAvatar from "@/components/dashboard/contacts/contact-list-avatar";
 import {getRedis} from "@/lib/actions/get-redis";
 import {isSignedIn} from "@/lib/actions/auth";
-import {generateSignedUrl} from "@common";
+import {storageObjectUrl} from "@/lib/storage-object-access";
 
 async function Page({ params }: { params: { contactsPublicId: string } }) {
 	const { contactsPublicId } = await params;
@@ -46,12 +46,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 	const phones = Array.isArray(contact.phones) ? contact.phones : [];
 	const addresses = Array.isArray(contact.addresses) ? contact.addresses : [];
 
-	let profilePictureUrl: string | null = null;
-
-	if (contact.profilePicture) {
-		profilePictureUrl = await generateSignedUrl(contact.profilePicture)
-		console.log("profilePictureUrl", profilePictureUrl)
-	}
+	const profilePictureUrl = storageObjectUrl(contact.profilePicture);
 
 	const onDeleteAction = async (id: string) => {
 		"use server";

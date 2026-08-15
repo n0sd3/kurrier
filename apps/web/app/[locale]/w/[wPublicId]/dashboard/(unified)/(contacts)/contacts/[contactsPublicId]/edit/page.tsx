@@ -1,15 +1,13 @@
 import React from "react";
 import NewContactForm from "@/components/dashboard/contacts/new-contact-form";
 import { isSignedIn } from "@/lib/actions/auth";
-import {FormState, getPublicEnv, getServerEnv, handleAction} from "@schema";
+import {FormState, getPublicEnv, handleAction} from "@schema";
 import { decode } from "decode-formdata";
 import { ContactCreate, ContactInsertSchema, contacts } from "@db";
 import {getWorkspacePublicId, rlsClient} from "@/lib/actions/clients";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import {GetObjectCommand} from "@aws-sdk/client-s3";
-import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
-import {s3} from "@/lib/create-s3-client";
+import {storageObjectUrl} from "@/lib/storage-object-access";
 import {getRedis} from "@/lib/actions/get-redis";
 
 async function Page({ params }: { params: { contactsPublicId: string } }) {
@@ -28,19 +26,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 		);
 	}
 
-	let profilePictureUrl: string | null = null;
-
-	if (contact.profilePicture) {
-		const { S3_BUCKET } = getServerEnv();
-		const command = new GetObjectCommand({
-			Bucket: S3_BUCKET!,
-			Key: contact.profilePicture,
-		});
-
-		profilePictureUrl = await getSignedUrl(s3, command, {
-			expiresIn: 600,
-		});
-	}
+	const profilePictureUrl = storageObjectUrl(contact.profilePicture);
 
 
 	const user = await isSignedIn();

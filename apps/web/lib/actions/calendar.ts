@@ -43,7 +43,7 @@ import { calendarEventAttendees } from "@db";
 import { PgTransaction } from "drizzle-orm/pg-core";
 import { RRule } from "rrule";
 import {GetObjectCommand} from "@aws-sdk/client-s3";
-import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
+import {storageObjectUrl} from "@/lib/storage-object-access";
 import {s3} from "@/lib/create-s3-client";
 const { S3_BUCKET } = getServerEnv();
 
@@ -614,17 +614,8 @@ export const searchContactsForCompose = async (
 
 		for (const e of emails) {
 			if (!e.address) continue;
-			let avatarUrl: string | null = null;
+			const avatarUrl = storageObjectUrl(row.profilePictureXs as string | null);
 
-			if (row.profilePictureXs) {
-				const command = new GetObjectCommand({
-					Bucket: S3_BUCKET,
-					Key: String(row.profilePictureXs),
-				});
-				avatarUrl = await getSignedUrl(s3, command, {
-					expiresIn: 60
-				});
-			}
 			suggestions.push({
 				id: row.id,
 				name: fullName || e.address,
@@ -713,18 +704,9 @@ export const getContactsForAttendeeIds = async (
 				.join(" ")
 			: null;
 
-		let avatarUrl: string | null = null;
-
-		if (relatedContact?.profilePictureXs) {
-			const command = new GetObjectCommand({
-				Bucket: S3_BUCKET,
-				Key: String(relatedContact.profilePictureXs),
-			});
-
-			avatarUrl = await getSignedUrl(s3, command, {
-				expiresIn: 60,
-			});
-		}
+		const avatarUrl = storageObjectUrl(
+			relatedContact?.profilePictureXs as string | null,
+		);
 
 		results.push({
 			id: attendee.attendeeId, // now attendeeId is canonical

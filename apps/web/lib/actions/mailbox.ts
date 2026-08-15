@@ -47,8 +47,7 @@ import { getRedis } from "@/lib/actions/get-redis";
 import dayjs from "dayjs";
 import {fetchWorkspace} from "@/lib/actions/workspace";
 
-import {GetObjectCommand} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { storageObjectUrl } from "@/lib/storage-object-access";
 import { s3 } from "@/lib/create-s3-client";
 import { isGmailIdentity } from "@common";
 
@@ -276,7 +275,6 @@ export const fetchMessageAttachments = cache(async (messageId: string) => {
 });
 
 export async function getSignedUrlsForMessage(messageId: string) {
-	const { S3_BUCKET } = getServerEnv();
 	const rls = await rlsClient();
 	const attachments = await rls((tx) =>
 		tx
@@ -284,22 +282,11 @@ export async function getSignedUrlsForMessage(messageId: string) {
 			.from(messageAttachments)
 			.where(eq(messageAttachments.messageId, messageId)),
 	);
-	const results = await Promise.all(
-		attachments.map(async (attachment) => {
-			const command = new GetObjectCommand({
-				Bucket: S3_BUCKET!,
-				Key: attachment.path!,
-			});
 
-			const url = await getSignedUrl(s3, command, { expiresIn: 300 });
-
-			return {
-				...attachment,
-				signedUrl: url,
-			};
-		}),
-	);
-	return results;
+	return attachments.map((attachment) => ({
+		...attachment,
+		signedUrl: storageObjectUrl(attachment.path) as string,
+	}));
 }
 
 export const revalidateMailbox = async (path: string) => {

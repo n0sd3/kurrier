@@ -6,10 +6,7 @@ import { getWorkspacePublicId, rlsClient } from "@/lib/actions/clients";
 import { addressBooks, contactLabels, contacts, labels } from "@db";
 import { eq } from "drizzle-orm";
 import { ContactWithFavorite } from "@/components/dashboard/contacts/contacts-list";
-import { getServerEnv } from "@schema";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3 } from "@/lib/create-s3-client";
+import { storageObjectUrl } from "@/lib/storage-object-access";
 
 export default async function ContactsLayout({
 												 children,
@@ -52,21 +49,14 @@ export default async function ContactsLayout({
 
 	const allContacts = Array.from(grouped.values());
 
-	const { S3_BUCKET } = getServerEnv();
 	const uniqueKeys = Array.from(
 		new Set(allContacts.map((c) => c.profilePictureXs).filter(Boolean) as string[])
 	);
 
-	const profileImages = await Promise.all(
-		uniqueKeys.map(async (key) => {
-			const signedUrl = await getSignedUrl(
-				s3,
-				new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
-				{ expiresIn: 600 }
-			);
-			return { path: key, signedUrl };
-		})
-	);
+	const profileImages = uniqueKeys.map((key) => ({
+		path: key,
+		signedUrl: storageObjectUrl(key) as string,
+	}));
 
 	const workspacePublicId = await getWorkspacePublicId();
 	const [userBook] = await rls((tx) => tx.select().from(addressBooks));
