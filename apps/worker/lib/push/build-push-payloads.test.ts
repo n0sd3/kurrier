@@ -28,6 +28,11 @@ test("falls back to the sender's address when there's no name", () => {
 	assert.equal(payloads[0].title, "ada@example.com");
 });
 
+test("falls back to a generic title when from is null", () => {
+	const payloads = buildPushPayloads([msg({ from: null })]);
+	assert.equal(payloads[0].title, "New email");
+});
+
 test("falls back to a generic subject when missing", () => {
 	const payloads = buildPushPayloads([msg({ subject: null })]);
 	assert.equal(payloads[0].body, "(no subject)");

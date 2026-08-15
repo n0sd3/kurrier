@@ -88,12 +88,25 @@ self.addEventListener("notificationclick", (event) => {
 
 	event.waitUntil(
 		clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-			for (const client of windowClients) {
-				if ("focus" in client) {
-					client.navigate(url);
-					return client.focus();
-				}
+			// Prefer a window that's already showing the target URL over
+			// hijacking whichever window happened to be first in the list.
+			const matching = windowClients.find((client) => client.url === url);
+			if (matching && "focus" in matching) {
+				return matching.focus();
 			}
+
+			const client = windowClients[0];
+			if (client && "focus" in client) {
+				// client.navigate() rejects when the client isn't controlled by
+				// this service worker (possible with includeUncontrolled: true).
+				// Fall back to opening a new window rather than silently
+				// leaving a focused window that never navigated.
+				return client
+					.navigate(url)
+					.then((navigated) => (navigated || client).focus())
+					.catch(() => clients.openWindow(url));
+			}
+
 			return clients.openWindow(url);
 		}),
 	);

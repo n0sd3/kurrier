@@ -14,7 +14,13 @@ export async function sendPushNotifications({
 	messages: PushableMessage[];
 }) {
 	const vapid = getVapidConfig();
-	if (!vapid || messages.length === 0) return;
+	if (!vapid) {
+		console.warn(
+			"[push] Skipping push:notify job: VAPID is not configured (set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT).",
+		);
+		return;
+	}
+	if (messages.length === 0) return;
 
 	const mailboxIds = [...new Set(messages.map((m) => m.mailboxId))];
 	const mailboxRows = await db
@@ -60,7 +66,7 @@ export async function sendPushNotifications({
 				: linkMailbox;
 
 			const url = payload.threadId
-				? `/w/${mailbox.workspacePublicId}/dashboard/mail/${mailbox.identityPublicId}/${mailbox.slug}/threads/${payload.threadId}`
+				? `/w/${mailbox.workspacePublicId}/dashboard/mail/${mailbox.identityPublicId}/${mailbox.slug || mailbox.kind}/threads/${payload.threadId}`
 				: `/w/${mailbox.workspacePublicId}/dashboard/mail`;
 
 			try {
@@ -72,7 +78,7 @@ export async function sendPushNotifications({
 				if (err?.statusCode === 404 || err?.statusCode === 410) {
 					await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
 				} else {
-					console.error(`[push] Error sending to ${sub.endpoint}:`, err?.message ?? err);
+					console.error(`[push] Error sending to subscription ${sub.id}:`, err?.message ?? err);
 				}
 			}
 		}

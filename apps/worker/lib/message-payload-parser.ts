@@ -467,6 +467,15 @@ export async function parseAndStoreEmail(
 	if (mode === "live") {
 		webhookBuffer.push({ message, rawEmail });
 		rulesBuffer.push({ messageId: message.id });
+		// Intentionally NOT filtering to mailboxKind === "inbox" here: doing so
+		// would require a mailbox lookup inside this hot ingestion path for
+		// every live message. Every live message is buffered regardless of
+		// mailbox kind, and sendPushNotifications (apps/worker/lib/push/
+		// send-push-notifications.ts) filters to inbox-only once it already
+		// has the mailbox rows loaded. This costs an extra push:notify job +
+		// DB round-trip for non-inbox folders, but no notification is ever
+		// sent incorrectly — the tradeoff is deliberate, don't "fix" it by
+		// adding the filter back here.
 		pushBuffer.push({
 			ownerId: message.ownerId,
 			mailboxId: message.mailboxId,
