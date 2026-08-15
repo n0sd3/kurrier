@@ -199,6 +199,7 @@ export default function IdentityMailboxesList({
 	const params = useParams() as {
 		identityPublicId?: string;
 		mailboxSlug?: string;
+		threadId?: string;
 	};
 
 	useEffect(() => {
@@ -258,7 +259,24 @@ export default function IdentityMailboxesList({
 					<div className="flex w-full items-start">
 						<Link
 							href={href}
-							onClick={onComplete ? () => onComplete() : undefined}
+							onClick={(e) => {
+								// Returning to the mailbox that's currently showing an
+								// intercepted thread must be a POP navigation: Next only
+								// resets the @thread parallel slot back to default.tsx on
+								// history back, not on a pushed Link navigation to the
+								// same underlying list segment (the list page itself
+								// doesn't change, so a push leaves the thread rendered
+								// until a second navigation forces a reconcile).
+								if (
+									params.threadId &&
+									params.identityPublicId === identityPublicId &&
+									params.mailboxSlug === slug
+								) {
+									e.preventDefault();
+									router.back();
+								}
+								onComplete?.();
+							}}
 							aria-disabled={!m.selectable}
 							className={cn(
 								"flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pl-2 text-sm",

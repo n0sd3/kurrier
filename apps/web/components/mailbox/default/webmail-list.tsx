@@ -76,6 +76,7 @@ export default function WebmailList({
 											mailboxThreadItem.threadId + mailboxThreadItem.mailboxId
 										}
 										mailboxThreadItem={mailboxThreadItem}
+										workspacePublicId={workspacePublicId}
 										activeMailbox={activeMailbox}
 										identityPublicId={identityPublicId}
 										mailboxSync={mailboxSync ?? undefined}
