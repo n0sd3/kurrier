@@ -7,6 +7,7 @@ import { kvDel, kvGet, kvSet } from "@common";
 import { processWebhook } from "../../lib/webhooks/message.received";
 import { and, isNull, lte } from "drizzle-orm";
 import { processRules } from "../../lib/rules/rules-processor";
+import { sendPushNotifications } from "../../lib/push/send-push-notifications";
 
 export default defineNitroPlugin(async (nitroApp) => {
 	const connection = (await getRedis()).connection;
@@ -39,6 +40,14 @@ export default defineNitroPlugin(async (nitroApp) => {
 						rawEmail: string;
 					};
 					await processWebhook({ message, rawEmail });
+					return { success: true };
+				}
+				case "push:notify": {
+					const { ownerId, messages } = job.data as {
+						ownerId: string;
+						messages: import("../../lib/push/send-push-notifications").PushableMessage[];
+					};
+					await sendPushNotifications({ ownerId, messages });
 					return { success: true };
 				}
 				case "rules:processor": {
