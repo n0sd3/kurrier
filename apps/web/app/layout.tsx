@@ -63,6 +63,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
 	themeColor: "#2563EB",
 	viewportFit: "cover",
+	// Pinch zoom is disabled by request, to keep the app feeling native rather
+	// than like a zoomable web page. Note this costs users who rely on zooming
+	// to read; the 16px rule in globals.css still keeps focus from zooming.
+	maximumScale: 1,
+	userScalable: false,
 };
 
 export default async function RootLayout({
