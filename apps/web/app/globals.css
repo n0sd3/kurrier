@@ -475,6 +475,21 @@
 	transition-property: width, flex-basis;
 }
 
+/*
+ * iOS Safari auto-zooms the whole page when a focused form control has a
+ * font-size below 16px, which then leaves the page horizontally scrollable.
+ * Mantine inputs default to size="sm" (--mantine-font-size-sm, 14px), so pin
+ * controls to 16px on small screens. Done here rather than with
+ * user-scalable=no, which would disable pinch zoom entirely.
+ */
+@media (max-width: 768px) {
+	input:not([type="checkbox"]):not([type="radio"]),
+	textarea,
+	select {
+		font-size: 16px;
+	}
+}
+
 @layer utilities {
 	@keyframes weekFade {
 		from {
