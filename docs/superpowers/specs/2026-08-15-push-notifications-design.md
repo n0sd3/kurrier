@@ -70,23 +70,42 @@ on/off switch.
   opt-in feature flag, not a required boot-time config. VAPID keys follow the
   same pattern.
 
+## Amendments (found during planning)
+
+- **Every RLS-protected table in this schema carries `workspaceId`** — the
+  `workspaceCrudPolicies(t, tableName)` helper (`packages/db/src/drizzle/helpers.ts:96`)
+  is typed to require it, and there is no user-only equivalent. `pushSubscriptions`
+  follows the same convention (`workspaceId` default `authWorkspaceId`, alongside
+  `ownerId` default `authUid`) rather than inventing a new RLS shape. This doesn't
+  change the "global toggle" decision — the worker's send path queries by
+  `ownerId` using the admin (RLS-bypassing) `db` client, same as `processWebhook`.
+- **Thread deep links need three extra IDs, not a flat route.** The actual thread
+  route is `/w/{workspacePublicId}/dashboard/mail/{identityPublicId}/{mailboxSlug}/threads/{threadId}`
+  (route groups `(unified)`/`(mail)` don't appear in the URL). `proxy.ts` injects
+  the locale for any locale-less path, so the link can omit it. Building this
+  requires resolving `messages.mailboxId` → `mailboxes.{slug, identityId}` →
+  `identities.publicId` → `workspaces.publicId`, done once per notification job
+  in the worker (see Design §6 below), not assumed as a static `/mail/thread/{id}`
+  path.
+
 ## Design
 
 ### 1. Schema — `packages/db/src/drizzle/schema.ts`
 
 New table `pushSubscriptions`, modeled on the existing `webhooks` table
-(same file, ~line 900) for RLS conventions:
+(same file, ~line 900):
 
 - `id` (uuid, pk)
-- `ownerId` (fk → `users`, cascade delete)
+- `ownerId` (fk → `users`, default `authUid`)
+- `workspaceId` (fk → `workspaces`, default `authWorkspaceId`) — present for
+  RLS consistency with every other table; the worker's send path still queries
+  by `ownerId` alone via the admin client
 - `endpoint` (text, unique) — the push service URL from the browser
 - `p256dh` (text) — subscription encryption key
 - `auth` (text) — subscription auth secret
 - `userAgent` (text, nullable) — informational only, not used for logic
 - `createdAt` (timestamptz, default now)
-- RLS policy mirroring `webhookCrudPolicies`, scoped to `ownerId = auth.uid()`
-  (subscriptions aren't workspace-scoped since the toggle is per-user, not
-  per-identity)
+- `...workspaceCrudPolicies(t, "push_subscriptions")`, same as `webhooks`
 
 A user can have multiple rows (one per browser/device). Generate the migration
 with `pnpm --filter @kurrier/db db:generate` (drizzle-kit), consistent with how
