@@ -44,6 +44,22 @@ export function formatParticipants(p: Participants, mailboxKind?: string) {
 	return names.slice(0, 3).join(", ") + (names.length > 3 ? "…" : "");
 }
 
+/** The one participant the row is "about" — drives the avatar. */
+export function primaryParticipant(p: Participants, mailboxKind?: string) {
+	const from = p?.from ?? [];
+	const recipients = [p?.to ?? [], p?.cc ?? [], p?.bcc ?? []];
+
+	const lists = OUTGOING_KINDS.has(mailboxKind ?? "")
+		? recipients
+		: from.length > 0
+			? [from]
+			: recipients;
+
+	const [first] = dedupe(lists, 1);
+	if (!first) return { label: "", email: "" };
+	return { label: (first.n && first.n.trim()) || first.e, email: first.e };
+}
+
 const ENTITIES: Record<string, string> = {
 	"&nbsp;": " ",
 	"&amp;": "&",

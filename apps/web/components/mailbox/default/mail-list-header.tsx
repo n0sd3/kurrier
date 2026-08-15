@@ -69,6 +69,22 @@ function MailListHeader({
 	const isChecked =
 		selectedSize === mailboxThreads.length && mailboxThreads.length > 0;
 
+	const clearSelection = () =>
+		setState((prev) => ({ ...(prev ?? {}), selectedThreadIds: new Set() }));
+
+	// Threads can leave the list without going through this header — a swipe, a
+	// move to another folder, a sync. Drop ids that are no longer on screen so
+	// the select-all box and the action bar can't act on stale threads.
+	useEffect(() => {
+		const visible = new Set(mailboxThreads.map((t) => t.threadId));
+		setState((prev) => {
+			const selected: Set<string> = prev?.selectedThreadIds ?? new Set();
+			const kept = new Set([...selected].filter((id) => visible.has(id)));
+			if (kept.size === selected.size) return prev;
+			return { ...(prev ?? {}), selectedThreadIds: kept };
+		});
+	}, [mailboxThreads, setState]);
+
 	const pathName = usePathname();
 	const router = useRouter();
 
@@ -124,6 +140,7 @@ function MailListHeader({
 				true,
 				pathName,
 			);
+			clearSelection();
 			router.refresh();
 		} catch {
 			toast.error("Failed to mark as read", { position: "bottom-left" });
@@ -153,6 +170,7 @@ function MailListHeader({
 				undefined,
 				pathName,
 			);
+			clearSelection();
 			router.refresh();
 			toast.success("Messages moved to Trash", { id: toastId, position: "bottom-left" });
 		} catch {
@@ -178,6 +196,7 @@ function MailListHeader({
 				undefined,
 				pathName,
 			);
+			clearSelection();
 			router.refresh();
 			toast.success("Thread deleted forever", { id: toastId, position: "bottom-left" });
 		} catch {
@@ -202,6 +221,7 @@ function MailListHeader({
 				},
 				pathName,
 			);
+			clearSelection();
 			router.refresh();
 			toast.success("Trash removed successfully", { id: toastId, position: "bottom-left" });
 		} catch {

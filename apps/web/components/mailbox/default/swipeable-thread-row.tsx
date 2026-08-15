@@ -14,9 +14,13 @@ type Props = {
 	left?: SwipeAction | null;
 	/** Revealed by dragging right. */
 	right?: SwipeAction | null;
+	/** Fired after holding a touch still on the row. */
+	onLongPress?: () => void;
 	className?: string;
 	children: ReactNode;
 };
+
+const LONG_PRESS_MS = 500;
 
 /** Fraction of the row width the finger must pass for the action to fire. */
 const COMMIT_RATIO = 0.4;
@@ -26,6 +30,7 @@ const LOCK_SLOP_PX = 8;
 export default function SwipeableThreadRow({
 	left,
 	right,
+	onLongPress,
 	className,
 	children,
 }: Props) {
@@ -50,17 +55,35 @@ export default function SwipeableThreadRow({
 
 	const actionFor = (dx: number) => (dx < 0 ? left : right);
 
+	const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// A long press is followed by a click the row would read as "open thread".
+	const suppressClick = useRef(false);
+
+	const clearLongPress = () => {
+		if (longPressTimer.current) clearTimeout(longPressTimer.current);
+		longPressTimer.current = null;
+	};
+
 	const reset = () => {
 		start.current = null;
 		axis.current = "undecided";
+		clearLongPress();
 		setDragging(false);
 		setDragOffset(0);
 	};
 
 	const onPointerDown = (e: React.PointerEvent<HTMLLIElement>) => {
-		if (!isTouch(e) || (!left && !right)) return;
+		if (!isTouch(e)) return;
 		start.current = { x: e.clientX, y: e.clientY };
 		axis.current = "undecided";
+
+		if (onLongPress) {
+			clearLongPress();
+			longPressTimer.current = setTimeout(() => {
+				suppressClick.current = true;
+				onLongPress();
+			}, LONG_PRESS_MS);
+		}
 	};
 
 	const onPointerMove = (e: React.PointerEvent<HTMLLIElement>) => {
@@ -68,6 +91,11 @@ export default function SwipeableThreadRow({
 
 		const dx = e.clientX - start.current.x;
 		const dy = e.clientY - start.current.y;
+
+		// Any real movement means this is a swipe or a scroll, not a hold.
+		if (Math.abs(dx) > LOCK_SLOP_PX || Math.abs(dy) > LOCK_SLOP_PX) {
+			clearLongPress();
+		}
 
 		if (axis.current === "undecided") {
 			if (Math.abs(dy) > LOCK_SLOP_PX && Math.abs(dy) > Math.abs(dx)) {
@@ -123,6 +151,12 @@ export default function SwipeableThreadRow({
 			onPointerMove={onPointerMove}
 			onPointerUp={onPointerUp}
 			onPointerCancel={reset}
+			onClickCapture={(e) => {
+				if (!suppressClick.current) return;
+				suppressClick.current = false;
+				e.stopPropagation();
+				e.preventDefault();
+			}}
 		>
 			{revealed && offset !== 0 && (
 				<div

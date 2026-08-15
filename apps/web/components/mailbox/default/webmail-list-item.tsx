@@ -31,7 +31,12 @@ import { toast } from "sonner";
 import LabelRowTag from "@/components/dashboard/labels/label-row-tag";
 import ThreadLabelHoverButtons from "@/components/dashboard/labels/thread-label-hover-buttons";
 import SnoozeMail from "@/components/mailbox/default/snooze-mail";
-import { cleanPreviewText, formatParticipants } from "@/lib/mailbox-row";
+import {
+	cleanPreviewText,
+	formatParticipants,
+	primaryParticipant,
+} from "@/lib/mailbox-row";
+import ThreadAvatar from "@/components/mailbox/default/thread-avatar";
 import { usePendingThreadActions } from "@/hooks/use-pending-thread-actions";
 import SwipeableThreadRow, {
 	type SwipeAction,
@@ -166,6 +171,10 @@ export default function WebmailListItem({
 		activeMailbox.kind,
 	);
 	const previewText = cleanPreviewText(mailboxThreadItem.previewText);
+	const primary = primaryParticipant(
+		mailboxThreadItem.participants,
+		activeMailbox.kind,
+	);
 
 	const canMarkAsRead = mailboxThreadItem.unreadCount > 0;
 	const canMarkAsUnread =
@@ -178,6 +187,21 @@ export default function WebmailListItem({
 	}>();
 
 	const { schedule, isPending } = usePendingThreadActions();
+
+	const isSelected = !!state?.selectedThreadIds?.has(
+		mailboxThreadItem.threadId,
+	);
+	const toggleSelected = () => {
+		setState((prev) => {
+			const next = new Set<string>(prev?.selectedThreadIds ?? []);
+			if (next.has(mailboxThreadItem.threadId)) {
+				next.delete(mailboxThreadItem.threadId);
+			} else {
+				next.add(mailboxThreadItem.threadId);
+			}
+			return { ...(prev ?? {}), selectedThreadIds: next };
+		});
+	};
 
 	if (isPending(mailboxThreadItem.threadId)) return null;
 
@@ -228,6 +252,7 @@ export default function WebmailListItem({
 			<SwipeableThreadRow
 				left={swipeTrash}
 				right={swipeMarkRead}
+				onLongPress={isOnSnoozedPage ? undefined : toggleSelected}
 				className={[
 					"relative group flex cursor-pointer items-start gap-3",
 					"px-3 py-2.5 transition-colors hover:bg-muted/70",
@@ -238,32 +263,34 @@ export default function WebmailListItem({
 				].join(" ")}
 			>
 				{/* controls */}
-				<div className="flex shrink-0 items-center gap-2 pt-0.5 md:pt-0">
+				<div className="flex shrink-0 items-center gap-2 md:pt-0">
 					{!isOnSnoozedPage && (
-						<input
-							type="checkbox"
-							onChange={(e) => {
-								const newSet = new Set(state?.selectedThreadIds);
-								if (e.target.checked) {
-									newSet.add(mailboxThreadItem.threadId);
-								} else {
-									newSet.delete(mailboxThreadItem.threadId);
-								}
-								setState({ selectedThreadIds: newSet });
-							}}
-							checked={state?.selectedThreadIds?.has(
-								mailboxThreadItem.threadId,
-							)}
-							aria-label={`Select thread ${mailboxThreadItem.subject}`}
-							className="h-4 w-4 rounded border-muted-foreground/40"
-							onClick={(e) => e.stopPropagation()}
-						/>
+						<>
+							{/* touch selects through the avatar; pointers keep the checkbox */}
+							<ThreadAvatar
+								label={primary.label || allNames}
+								email={primary.email}
+								selected={isSelected}
+								onToggle={toggleSelected}
+								className="md:hidden"
+							/>
+
+							<input
+								type="checkbox"
+								onChange={toggleSelected}
+								checked={isSelected}
+								aria-label={`Select thread ${mailboxThreadItem.subject}`}
+								className="hidden h-4 w-4 rounded border-muted-foreground/40 md:block"
+								onClick={(e) => e.stopPropagation()}
+							/>
+						</>
 					)}
 
+					{/* starring is a pointer-era affordance; on phones it only ate width */}
 					<button
 						type="button"
 						aria-label="Star"
-						className="text-muted-foreground hover:text-foreground"
+						className="hidden text-muted-foreground hover:text-foreground md:block"
 						onClick={async () => {
 							await toggleStar(
 								mailboxThreadItem.threadId,
