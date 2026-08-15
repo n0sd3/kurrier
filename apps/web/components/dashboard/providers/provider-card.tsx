@@ -115,10 +115,13 @@ export default function ProviderCard({
 		<div>
 			<Card className="shadow-none relative">
 				<CardHeader className="gap-3">
+					{/* Single direct child: CardHeader turns into grid-cols-[1fr_auto] as
+					    soon as a CardAction exists anywhere below it, and any second child
+					    would land in that auto column and overflow the card. */}
 					<div className="flex flex-col gap-3">
 						<div className="flex min-w-0 items-start gap-3">
 							<Globe className="mt-1 size-4 shrink-0 text-muted-foreground" />
-							<div className="min-w-0">
+							<div className="min-w-0 flex-1">
 								<CardTitle className="text-lg sm:text-xl">
 									{spec.name}
 								</CardTitle>
@@ -127,10 +130,14 @@ export default function ProviderCard({
 									removing stored credentials.
 								</p>
 							</div>
+							<IsVerifiedStatus
+								verified={decryptedValues.verified}
+								statusName={""}
+							/>
 						</div>
 
 						<div className="flex flex-wrap gap-2">
-							<CardAction className="flex w-full flex-wrap gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
+							<CardAction className="flex w-full flex-wrap gap-2 @lg/card-header:w-auto @lg/card-header:flex-nowrap @lg/card-header:justify-end">
 								<Button
 									variant="outline"
 									component={"a"}
@@ -160,10 +167,6 @@ export default function ProviderCard({
 							</CardAction>
 						</div>
 					</div>
-					<IsVerifiedStatus
-						verified={decryptedValues.verified}
-						statusName={""}
-					/>
 				</CardHeader>
 			</Card>
 		</div>

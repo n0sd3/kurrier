@@ -12,7 +12,7 @@ function IsVerifiedStatus({
 			{verified ? (
 				<div
 					className={
-						"flex justify-center gap-1 items-center mx-2 text-teal-600 dark:text-brand-foreground font-medium text-xs"
+						"flex shrink-0 justify-center gap-1 items-center mx-2 whitespace-nowrap text-teal-600 dark:text-brand-foreground font-medium text-xs"
 					}
 				>
 					<Verified size={16} />
@@ -21,7 +21,7 @@ function IsVerifiedStatus({
 			) : (
 				<div
 					className={
-						"flex justify-center gap-1 items-center mx-2 text-red-600 dark:text-brand-foreground font-medium text-xs"
+						"flex shrink-0 justify-center gap-1 items-center mx-2 whitespace-nowrap text-red-600 dark:text-brand-foreground font-medium text-xs"
 					}
 				>
 					<BadgeMinus size={16} />

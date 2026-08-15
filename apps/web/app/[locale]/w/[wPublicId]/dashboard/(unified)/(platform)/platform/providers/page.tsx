@@ -48,6 +48,11 @@ export default async function ProvidersPage() {
 					</p>
 
 					<div className="grid gap-6 lg:grid-cols-2">
+						<GoogleCard googleAccounts={googleAccounts} />
+						<ICloudCard smtpSecrets={smtpSecrets} />
+					</div>
+
+					<div className="grid gap-6 lg:grid-cols-2 my-8">
 						{PROVIDERS.map((p) => (
 							<ProviderCardShell
 								key={p.key}
@@ -56,11 +61,7 @@ export default async function ProvidersPage() {
 								userProviders={userProviders}
 							/>
 						))}
-					</div>
-					<div className="grid gap-6 lg:grid-cols-2 my-8">
 						<SMTPCard smtpSecrets={smtpSecrets} />
-						<GoogleCard googleAccounts={googleAccounts} />
-						<ICloudCard smtpSecrets={smtpSecrets} />
 					</div>
 				</Container>
 			</div>
