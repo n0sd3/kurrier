@@ -14,12 +14,16 @@ import NewSmtpAccountForm from "@/components/dashboard/providers/new-smtp-accoun
 import { FetchDecryptedSecretsResult } from "@/lib/actions/dashboard";
 import SmtpAccountCard from "@/components/dashboard/providers/smtp-account-card";
 import { Button } from "@mantine/core";
+import { isICloudSecret } from "@/lib/utils";
 
 export default function SMTPCard({
 	smtpSecrets,
 }: {
 	smtpSecrets: FetchDecryptedSecretsResult;
 }) {
+	// iCloud accounts are stored as SMTP accounts but listed in their own card.
+	const genericSecrets = (smtpSecrets ?? []).filter((s) => !isICloudSecret(s));
+
 	const openAddModal = () => {
 		const openModalId = modals.open({
 			title: (
@@ -64,7 +68,7 @@ export default function SMTPCard({
 					</CardHeader>
 
 					<CardContent className="space-y-6">
-						{(!smtpSecrets || smtpSecrets.length === 0) && (
+						{genericSecrets.length === 0 && (
 							<div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground text-center flex flex-col items-center gap-4 bg-muted">
 								<div>
 									<div className="font-medium text-card-foreground">
@@ -87,15 +91,14 @@ export default function SMTPCard({
 						)}
 
 						<div className="grid grid-cols-1 gap-4">
-							{!!smtpSecrets?.length &&
-								smtpSecrets.map((smtpSecret) => {
-									return (
-										<SmtpAccountCard
-											smtpSecret={smtpSecret}
-											key={smtpSecret.metaId}
-										/>
-									);
-								})}
+							{genericSecrets.map((smtpSecret) => {
+								return (
+									<SmtpAccountCard
+										smtpSecret={smtpSecret}
+										key={smtpSecret.metaId}
+									/>
+								);
+							})}
 						</div>
 					</CardContent>
 				</Card>

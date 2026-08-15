@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { FetchDecryptedSecretsResult } from "@/lib/actions/dashboard";
 import imageCompression from "browser-image-compression";
+import { ICLOUD_PRESET } from "@schema";
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
@@ -27,6 +28,13 @@ export function parseSecret(
 	return obj?.vault?.decrypted_secret
 		? JSON.parse(obj.vault.decrypted_secret)
 		: {};
+}
+
+/** iCloud accounts are SMTP accounts flagged with a preset in their secret. */
+export function isICloudSecret(
+	obj?: FetchDecryptedSecretsResult[number] | null,
+): boolean {
+	return parseSecret(obj).preset === ICLOUD_PRESET;
 }
 
 export const toArray = (v: string | string[] | undefined | null) =>

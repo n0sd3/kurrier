@@ -6,7 +6,8 @@ import {
 } from "@/lib/actions/dashboard";
 import { modals } from "@mantine/modals";
 import NewSmtpAccountForm from "@/components/dashboard/providers/new-smtp-account-form";
-import { cn, parseSecret } from "@/lib/utils";
+import { cn, isICloudSecret, parseSecret } from "@/lib/utils";
+import NewICloudAccountForm from "@/components/dashboard/providers/new-icloud-account-form";
 import { Lock, Pencil, Play, ShieldCheck, Trash2 } from "lucide-react";
 import { ActionIcon, Button } from "@mantine/core";
 import { toast } from "sonner";
@@ -18,20 +19,28 @@ function SmtpAccountCard({
 	smtpSecret: FetchDecryptedSecretsResultRow;
 }) {
 	const parsedVaultValues = parseSecret(smtpSecret);
+	const isICloud = isICloudSecret(smtpSecret);
 	const openEdit = () => {
 		const openModalId = modals.open({
 			title: (
 				<div className="font-semibold text-brand-foreground">
-					Edit SMTP Account
+					{isICloud ? "Edit iCloud Account" : "Edit SMTP Account"}
 				</div>
 			),
 			size: "lg",
 			children: (
 				<div className="p-2">
-					<NewSmtpAccountForm
-						smtpSecret={smtpSecret}
-						onCompleted={() => modals.close(openModalId)}
-					/>
+					{isICloud ? (
+						<NewICloudAccountForm
+							smtpSecret={smtpSecret}
+							onCompleted={() => modals.close(openModalId)}
+						/>
+					) : (
+						<NewSmtpAccountForm
+							smtpSecret={smtpSecret}
+							onCompleted={() => modals.close(openModalId)}
+						/>
+					)}
 				</div>
 			),
 		});
@@ -124,8 +133,15 @@ function SmtpAccountCard({
 			>
 				<div className="flex items-start justify-between gap-3">
 					<div>
-						<div className="text-base font-medium">
-							{parsedVaultValues.label}
+						<div className="flex items-center gap-2">
+							<div className="text-base font-medium">
+								{parsedVaultValues.label}
+							</div>
+							{isICloud && (
+								<span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+									iCloud
+								</span>
+							)}
 						</div>
 						<div className="mt-1 text-sm  flex items-center gap-2">
 							<span className="inline-flex items-center gap-1">

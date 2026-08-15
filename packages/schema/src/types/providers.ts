@@ -95,6 +95,34 @@ export const SMTP_SPEC = {
 		"IMAP vars are optional and only needed if you plan to receive/sync messages.",
 };
 
+/**
+ * iCloud Mail is stored as a regular SMTP account: the connection settings are
+ * fixed, so the user only supplies an Apple ID and an app-specific password.
+ * Accounts created this way carry `preset: "icloud"` in their vault secret.
+ */
+export const ICLOUD_PRESET = "icloud" as const;
+
+export const ICLOUD_SPEC = {
+	preset: ICLOUD_PRESET,
+	name: "iCloud Mail",
+	docsUrl: "https://support.apple.com/102654",
+	manageUrl: "https://account.apple.com/account/manage",
+	help:
+		"Connect an iCloud mailbox with an app-specific password. Host, port and " +
+		"TLS settings are applied automatically — you only provide your Apple ID " +
+		"and the generated password.",
+	/** Apple's published client settings for iCloud Mail. */
+	defaults: {
+		SMTP_HOST: "smtp.mail.me.com",
+		SMTP_PORT: "587",
+		SMTP_SECURE: "false", // STARTTLS on 587
+		SMTP_POOL: "false",
+		IMAP_HOST: "imap.mail.me.com",
+		IMAP_PORT: "993",
+		IMAP_SECURE: "true",
+	},
+} as const;
+
 export const STORAGE_PROVIDERS: ProviderSpec[] = [
 	{
 		key: "s3",

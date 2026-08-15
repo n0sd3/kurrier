@@ -9,6 +9,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {fetchWorkspace} from "@/lib/actions/workspace";
 import GoogleCard from "@/components/dashboard/providers/google-card";
+import ICloudCard from "@/components/dashboard/providers/icloud-card";
 
 export default async function ProvidersPage() {
 	const userProviders = await syncProviders();
@@ -59,6 +60,7 @@ export default async function ProvidersPage() {
 					<div className="grid gap-6 lg:grid-cols-2 my-8">
 						<SMTPCard smtpSecrets={smtpSecrets} />
 						<GoogleCard googleAccounts={googleAccounts} />
+						<ICloudCard smtpSecrets={smtpSecrets} />
 					</div>
 				</Container>
 			</div>
