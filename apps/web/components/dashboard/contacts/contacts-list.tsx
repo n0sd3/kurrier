@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Star } from "lucide-react";
 import ContactListAvatar from "@/components/dashboard/contacts/contact-list-avatar";
 import {ProfileImage} from "@/components/dashboard/contacts/contacts-shell";
+import { filterContactsByQuery } from "@/lib/contact-search";
 
 export type ContactWithFavorite = ContactEntity & {
 	isFavorite: boolean;
@@ -16,13 +17,15 @@ function ContactsList({
 	userContacts,
 	profileImages,
 	workspacePublicId,
-	selectedAddressBook
+	selectedAddressBook,
+	searchQuery = "",
 }: {
 	selectedAddressBook: string
 	onAddressBookChange: (value: string) => void
 	userContacts?: ContactWithFavorite[];
 	profileImages: (ProfileImage | null)[];
 	workspacePublicId: string
+	searchQuery?: string;
 }) {
 	const params = useParams() as {
 		contactsPublicId?: string;
@@ -36,11 +39,22 @@ function ContactsList({
 				)
 			: (userContacts ?? []);
 
-	const finalFilteredUserContacts = selectedAddressBook === 'all'
+	const bookFilteredUserContacts = selectedAddressBook === 'all'
 		? filteredUserContacts
 		: filteredUserContacts.filter((c) => c.addressBookId === selectedAddressBook);
+
+	const finalFilteredUserContacts = filterContactsByQuery(
+		bookFilteredUserContacts,
+		searchQuery,
+	);
+
 	return (
 		<div className="overflow-y-auto flex-col h-[calc(100vh-10rem)]">
+			{finalFilteredUserContacts.length === 0 && searchQuery.trim() !== "" && (
+				<p className="px-3 py-6 text-center text-sm text-muted-foreground">
+					No contacts match “{searchQuery}”.
+				</p>
+			)}
 			{finalFilteredUserContacts.map((c) => {
 				const imagePath =
 					c.profilePictureXs && profileImages
