@@ -6,6 +6,7 @@ import "./globals.css";
 import { ConfigProvider } from "@/components/providers/config-provider";
 import { AppearanceProvider } from "@/components/providers/appearance-provider";
 import { PwaRegister } from "@/components/common/pwa-register";
+import { APPLE_SPLASH_SCREENS } from "@/lib/apple-splash-screens";
 import {
 	MODE_COOKIE,
 	RESOLVED_COOKIE,
@@ -46,10 +47,22 @@ export const metadata: Metadata = {
 		],
 		apple: "/icons/apple-touch-icon.png",
 	},
+	appleWebApp: {
+		capable: true,
+		statusBarStyle: "default",
+		title: "Kurrier",
+		startupImage: APPLE_SPLASH_SCREENS,
+	},
+	other: {
+		// Next only emits the modern unprefixed "mobile-web-app-capable" tag;
+		// older iOS releases still key standalone mode off the apple-prefixed one.
+		"apple-mobile-web-app-capable": "yes",
+	},
 };
 
 export const viewport: Viewport = {
 	themeColor: "#2563EB",
+	viewportFit: "cover",
 };
 
 export default async function RootLayout({

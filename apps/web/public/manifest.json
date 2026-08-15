@@ -1,4 +1,5 @@
 {
+	"id": "/",
 	"name": "Kurrier",
 	"short_name": "Kurrier",
 	"description": "The self-hosted open-source workspace for email, calendars, contacts and storage.",

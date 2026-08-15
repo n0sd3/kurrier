@@ -379,6 +379,11 @@
 		font-feature-settings: "liga", "kern";
 		font-kerning: normal;
 		font-variant-ligatures: common-ligatures contextual;
+		/* iOS never reserves space for the home indicator or a landscape
+		 * notch on its own, even outside "black-translucent" status bars. */
+		padding-left: env(safe-area-inset-left);
+		padding-right: env(safe-area-inset-right);
+		padding-bottom: env(safe-area-inset-bottom);
 	}
 
 	[role="button"],
