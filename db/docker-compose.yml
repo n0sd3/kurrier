@@ -4,6 +4,11 @@ services:
   web:
 #    image: ghcr.io/kurrier-org/kurrier-web:v3.0.11
     image: ghcr.io/kurrier-org/kurrier-web:v3.2.3
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        APP_DIR: apps/web
     restart: unless-stopped
     env_file:
       - .env
@@ -15,6 +20,9 @@ services:
   worker:
 #    image: ghcr.io/kurrier-org/kurrier-worker:v3.0.11
     image: ghcr.io/kurrier-org/kurrier-worker:v3.2.3
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
     restart: unless-stopped
     env_file:
       - .env
