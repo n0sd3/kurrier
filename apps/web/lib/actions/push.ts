@@ -3,7 +3,7 @@
 import { db, pushSubscriptions } from "@db";
 import { and, eq } from "drizzle-orm";
 import { isSignedIn } from "@/lib/actions/auth";
-import { getWorkspaceId, rlsClient, rlsClientForWorkspace } from "@/lib/actions/clients";
+import { getWorkspaceId, rlsClientForWorkspace } from "@/lib/actions/clients";
 
 export async function subscribeToPush(subscription: {
 	endpoint: string;
@@ -48,6 +48,26 @@ export async function subscribeToPush(subscription: {
 	// re-subscribing the same endpoint under a different account/workspace
 	// correctly transfers ownership instead of erroring or leaking data to
 	// the previous owner.
+	//
+	// Accepted residual risk: because this write is unconditional and
+	// RLS-bypassing, `endpoint` is effectively a bearer-secret here — any
+	// authenticated user who learns another user's endpoint string can call
+	// this action with their own keys and silently reassign that person's
+	// subscription row to themselves (a takeover, now unbounded by workspace
+	// since the write no longer goes through workspace-scoped RLS at all).
+	// This is deliberately not closed further:
+	//   (a) endpoints are long random tokens minted by the push service, not
+	//       guessable or enumerable by an attacker;
+	//   (b) the impact is availability only, not content disclosure — a
+	//       hijacked row is re-keyed to the attacker's own p256dh/auth, so
+	//       pushes get sealed to the attacker's keys and the victim's device
+	//       just silently stops receiving notifications; the attacker can
+	//       never read the victim's mail through this path;
+	//   (c) closing it fully would require distinguishing "legitimate
+	//       re-subscribe" from "malicious takeover" from the same signal
+	//       (same endpoint, different keys), which this design can't do
+	//       without breaking the shared-browser/multi-workspace reassignment
+	//       case Critical #1 exists to support.
 	await db
 		.insert(pushSubscriptions)
 		.values({
@@ -75,18 +95,27 @@ export async function subscribeToPush(subscription: {
 export async function unsubscribeFromPush(endpoint: string) {
 	const user = await isSignedIn();
 	if (!user?.id) throw new Error("Not authenticated");
-	const rls = await rlsClient();
 
-	await rls((tx) =>
-		tx
-			.delete(pushSubscriptions)
-			.where(
-				and(
-					eq(pushSubscriptions.endpoint, endpoint),
-					eq(pushSubscriptions.ownerId, user.id),
-				),
+	// Uses the RLS-bypassing admin client, same as subscribeToPush's write.
+	// A subscription's workspace_id is stamped with whatever workspace was
+	// active at subscribe time, which can differ from the workspace active
+	// in the browser right now (multi-workspace users). Deleting through the
+	// rls-scoped client would filter on the *current* session's active
+	// workspace via the DELETE policy's USING clause, so it could silently
+	// match zero rows and still report success while the worker (which
+	// selects subscriptions by ownerId alone, no workspace filter) keeps
+	// sending pushes to the "unsubscribed" device. Pinning the delete to
+	// `ownerId = user.id` is a complete, sufficient authorization check on
+	// its own — a user can only ever delete their own rows — so workspace
+	// scoping adds nothing here and would only get in the way.
+	await db
+		.delete(pushSubscriptions)
+		.where(
+			and(
+				eq(pushSubscriptions.endpoint, endpoint),
+				eq(pushSubscriptions.ownerId, user.id),
 			),
-	);
+		);
 
 	return { success: true };
 }

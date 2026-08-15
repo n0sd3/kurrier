@@ -90,7 +90,11 @@ self.addEventListener("notificationclick", (event) => {
 		clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
 			// Prefer a window that's already showing the target URL over
 			// hijacking whichever window happened to be first in the list.
-			const matching = windowClients.find((client) => client.url === url);
+			// `url` (from notification.data.url) is relative; WindowClient.url
+			// is always an absolute href, so resolve before comparing or this
+			// branch never matches.
+			const target = new URL(url, self.location.origin).href;
+			const matching = windowClients.find((client) => client.url === target);
 			if (matching && "focus" in matching) {
 				return matching.focus();
 			}
