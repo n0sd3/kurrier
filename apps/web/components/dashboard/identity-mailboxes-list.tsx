@@ -342,6 +342,13 @@ export default function IdentityMailboxesList({
 		);
 	};
 
+	// Send-as aliases share their SMTP account's inbox rather than owning
+	// mailboxes of their own (see initializeMailboxes), so they have nothing
+	// to list or navigate to here.
+	const identitiesWithMailboxes = identityMailboxes.filter(
+		({ mailboxes }) => mailboxes.length > 0,
+	);
+
 	return (
 		<div className="space-y-2 px-2">
 			<div className={"my-2"}>
@@ -351,12 +358,12 @@ export default function IdentityMailboxesList({
 							router.push(`/w/${workspacePublicId}/dashboard/mail/${publicId}/inbox`)
 						}}
 				        value={params.identityPublicId}
-				        data={identityMailboxes.map((id) => {
+				        data={identitiesWithMailboxes.map((id) => {
 							return {value: id.identity.publicId, label: id.identity.value}
 						})} />
 			</div>
 
-			{identityMailboxes.map(({ identity, mailboxes }) => {
+			{identitiesWithMailboxes.map(({ identity, mailboxes }) => {
 				const tree = buildTree(mailboxes as MailboxEntity[], unreadCounts);
 
 				return (

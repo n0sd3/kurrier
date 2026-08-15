@@ -32,7 +32,7 @@ import {
 	SYSTEM_MAILBOXES,
 } from "@schema";
 import { currentSession, isSignedIn } from "@/lib/actions/auth";
-import {and, count, eq, sql, gte, desc, inArray, sum, countDistinct} from "drizzle-orm";
+import {and, count, eq, ne, sql, gte, desc, inArray, sum, countDistinct} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { decode } from "decode-formdata";
 import { PgColumn, PgTable } from "drizzle-orm/pg-core";
@@ -523,6 +523,25 @@ export const initializeMailboxes = async (emailIdentity: IdentityEntity, userId:
 	}
 
 	if (emailIdentity.smtpAccountId) {
+		// IMAP is per-login, not per-alias: a second identity on the same SMTP
+		// account (e.g. an iCloud custom-domain alias) points at the exact same
+		// physical mailbox as the first. Only the first identity gets its own
+		// backfilled mailboxes; later ones are send-as aliases with no inbox.
+		const rls = await rlsClient();
+		const [sibling] = await rls((tx) =>
+			tx
+				.select({ id: identities.id })
+				.from(identities)
+				.where(
+					and(
+						eq(identities.smtpAccountId, emailIdentity.smtpAccountId!),
+						ne(identities.id, emailIdentity.id),
+					),
+				)
+				.limit(1),
+		);
+		if (sibling) return;
+
 		await backfillMailboxes(emailIdentity.id, emailIdentity.workspaceId);
 		return;
 	}

@@ -371,9 +371,16 @@ export const imapIdleSync = async (
 	imapInstances: Map<string, ImapFlow>,
 ) => {
 
+	// A second identity on the same SMTP account (a send-as alias, e.g. an
+	// iCloud custom-domain address) points at the exact same physical IMAP
+	// inbox as the first and owns no mailboxes of its own — see
+	// initializeMailboxes in apps/web/lib/actions/dashboard.ts. Only sync
+	// identities that actually own mailboxes, or aliases would each pull a
+	// full duplicate copy of the shared inbox.
 	const identityRows = await db
-		.select()
+		.selectDistinct({ id: identities.id })
 		.from(identities)
+		.innerJoin(mailboxes, eq(mailboxes.identityId, identities.id))
 		.where(isNotNull(identities.smtpAccountId));
 
 	for (const identity of identityRows) {

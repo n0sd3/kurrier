@@ -73,9 +73,17 @@ function AddEmailIdentityForm({
 				props: {
 					autoComplete: "off",
 					required: true,
-					readOnly: true,
 					defaultValue: parsedVaultValues.SMTP_USERNAME || "",
+					placeholder: "e.g. sales@yourcustomdomain.com",
 				},
+				bottomStartPrefix: (
+					<p className="text-xs text-muted-foreground">
+						Defaults to your login address. If your provider (e.g. iCloud with a
+						custom email domain) lets you send as other addresses on the same
+						account, enter one here — it must already be set up as an alias with
+						your provider, since Kurrier can&apos;t verify it on your behalf.
+					</p>
+				),
 			},
 			{
 				name: "displayName",
