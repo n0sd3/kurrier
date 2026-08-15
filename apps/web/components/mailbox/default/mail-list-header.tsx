@@ -216,7 +216,7 @@ function MailListHeader({
 
 	return (
 		<>
-			<div className="sticky top-0 z-10 flex items-center bg-background/95 px-3 py-2 backdrop-blur rounded-t-2xl">
+			<div className="sticky top-0 z-10 flex items-center bg-background/95 px-3 py-2 backdrop-blur rounded-t-xl">
 				{!isOnSnoozedPage && (
 					<input
 						type="checkbox"

@@ -13,9 +13,8 @@ import {
 import MailListHeader from "@/components/mailbox/default/mail-list-header";
 import WebmailListItem from "@/components/mailbox/default/webmail-list-item";
 import { DynamicContextProvider } from "@/hooks/use-dynamic-context";
-import { useMediaQuery } from "@mantine/hooks";
-import WebmailListItemMobile from "@/components/mailbox/default/webmail-list-item-mobile";
-import { useParams } from "next/navigation";
+import { PendingThreadActionsProvider } from "@/hooks/use-pending-thread-actions";
+import { useParams, useRouter } from "next/navigation";
 
 type WebListProps = {
     mailboxThreads: FetchMailboxThreadsResult;
@@ -40,8 +39,8 @@ export default function WebmailListLabelSearch({
                                         workspacePublicId,
                                         labelsByThreadId,
                                     }: WebListProps) {
-    const isMobile = useMediaQuery("(max-width: 768px)");
     const params = useParams();
+    const router = useRouter();
 
     return (
         <div className={params?.threadId ? "hidden" : ""}>
@@ -58,7 +57,7 @@ export default function WebmailListLabelSearch({
                         <span className={"lowercase"}>{activeMailbox.name}</span>
                     </div>
                 ) : (
-                    <div className="rounded-xl border bg-background/50 z-[50]">
+                    <div className="overflow-hidden rounded-xl border bg-background/50 z-[50]">
                         <MailListHeader
                             mailboxThreads={mailboxThreads}
                             mailboxSync={mailboxSync ?? undefined}
@@ -67,35 +66,24 @@ export default function WebmailListLabelSearch({
                             activeMailbox={activeMailbox}
                         />
 
-                        <ul role="list" className={`divide-y rounded-4xl`}>
-                            {mailboxThreads.map((mailboxThreadItem) =>
-                                isMobile ? (
-                                    <WebmailListItemMobile
-                                        key={
-                                            mailboxThreadItem.threadId + mailboxThreadItem.mailboxId
-                                        }
-                                        mailboxThreadItem={mailboxThreadItem}
-                                        activeMailbox={activeMailbox}
-                                        identityPublicId={identityPublicId}
-                                        mailboxSync={mailboxSync ?? undefined}
-                                        labelsByThreadId={labelsByThreadId}
-                                    />
-                                ) : (
-                                    <WebmailListItem
-                                        key={
-                                            mailboxThreadItem.threadId + mailboxThreadItem.mailboxId
-                                        }
-                                        mailboxThreadItem={mailboxThreadItem}
-                                        workspacePublicId={workspacePublicId}
-                                        activeMailbox={activeMailbox}
-                                        identityPublicId={identityPublicId}
-                                        mailboxSync={mailboxSync ?? undefined}
-                                        globalLabels={globalLabels}
-                                        labelsByThreadId={labelsByThreadId}
-                                    />
-                                ),
-                            )}
+                        <PendingThreadActionsProvider onSettled={() => router.refresh()}>
+                        <ul role="list" className="divide-y">
+                            {mailboxThreads.map((mailboxThreadItem) => (
+                                <WebmailListItem
+                                    key={
+                                        mailboxThreadItem.threadId + mailboxThreadItem.mailboxId
+                                    }
+                                    mailboxThreadItem={mailboxThreadItem}
+                                    workspacePublicId={workspacePublicId}
+                                    activeMailbox={activeMailbox}
+                                    identityPublicId={identityPublicId}
+                                    mailboxSync={mailboxSync ?? undefined}
+                                    globalLabels={globalLabels}
+                                    labelsByThreadId={labelsByThreadId}
+                                />
+                            ))}
                         </ul>
+                        </PendingThreadActionsProvider>
                     </div>
                 )}
             </DynamicContextProvider>

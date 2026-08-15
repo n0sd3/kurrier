@@ -117,10 +117,12 @@ export default function MailboxSearch({
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="flex w-full items-center gap-2 rounded-lg border bg-background px-4 py-2.5 text-muted-foreground hover:bg-muted/30"
+				className="flex w-full min-w-0 flex-1 items-center gap-2 rounded-lg border bg-background px-3 py-2.5 text-muted-foreground hover:bg-muted/30 sm:px-4"
 			>
-				<Search className="h-4 w-4 opacity-60" />
-				<span className="text-sm">Search this mailbox (⌘K)</span>
+				<Search className="h-4 w-4 shrink-0 opacity-60" />
+				<span className="truncate whitespace-nowrap text-sm">
+					Search this mailbox<span className="hidden sm:inline"> (⌘K)</span>
+				</span>
 			</button>
 
 			<CommandDialog open={open} onOpenChange={setOpen}>

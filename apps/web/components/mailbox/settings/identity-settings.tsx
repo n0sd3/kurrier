@@ -7,9 +7,9 @@ import {useParams} from "next/navigation";
 
 function IdentitySettingsLink({identityLabel, workspacePublicId}: {identityLabel: string, workspacePublicId: string}) {
     const params = useParams()
-    return <Link href={`/w/${workspacePublicId}/dashboard/mail/${params.identityPublicId}/settings`}>
-        <Button size={"sm"} className={"!rounded-full"} leftSection={<Cog size={20} />} variant={"light"} rightSection={<ChevronRight size={16} />}>
-            <span className={"font-medium"}>{identityLabel}</span>
+    return <Link href={`/w/${workspacePublicId}/dashboard/mail/${params.identityPublicId}/settings`} className={"shrink-0"} aria-label={identityLabel}>
+        <Button size={"sm"} className={"!rounded-full"} leftSection={<Cog size={20} />} variant={"light"} rightSection={<ChevronRight size={16} className={"hidden sm:block"} />}>
+            <span className={"hidden max-w-[14rem] truncate font-medium sm:inline-block"}>{identityLabel}</span>
         </Button>
     </Link>
 }
