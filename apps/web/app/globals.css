@@ -373,6 +373,13 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+	html,
+	body {
+		/* The app is never meant to pan sideways. Without this a two-finger
+		 * trackpad swipe rubber-bands the whole page and arms Chrome's
+		 * swipe-to-go-back gesture, which reads as a layout bug. */
+		overscroll-behavior-x: none;
+	}
 	body {
 		@apply bg-background text-foreground;
 		text-rendering: optimizeLegibility;
