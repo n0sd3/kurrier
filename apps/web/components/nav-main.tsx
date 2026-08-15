@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	Bell,
 	Blocks,
 	ChevronRight, CreditCard,
 	FolderSync,
@@ -44,6 +45,12 @@ export function NavMain({workspacePublicId, workspaceRole}: {workspacePublicId?:
 			title: "Overview",
 			url: `/w/${workspacePublicId}/dashboard/platform/overview`,
 			icon: LayoutDashboard,
+			items: [],
+		},
+		{
+			title: "Notifications",
+			url: `/w/${workspacePublicId}/dashboard/platform/notifications`,
+			icon: Bell,
 			items: [],
 		},
 		...(workspaceRole === "owner"
