@@ -155,7 +155,13 @@ function LabelHome() {
 				</div>
 			</div>
 
-			<div className="-mx-4 pb-4">
+			{/*
+			  * Full-bleed rows: the negative margin has to cancel the sidebar's
+			  * padding exactly, or the sidebar scrolls sideways. SidebarGroup adds
+			  * p-2 and SidebarGroupContent px-1.5 md:px-0, so that is 14px below
+			  * the md breakpoint and 0 at or above it.
+			  */}
+			<div className="-mx-3.5 md:mx-0 pb-4">
 				<Tree
 					selectOnClick
 					tree={tree}
