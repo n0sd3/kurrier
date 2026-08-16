@@ -102,6 +102,6 @@ export async function mergeContacts(input: MergeContactsInput) {
 		});
 	}
 
-	revalidatePath("/dashboard/contacts");
+	revalidatePath("/[locale]/w/[wPublicId]/dashboard/contacts", "layout");
 	return { success: true };
 }

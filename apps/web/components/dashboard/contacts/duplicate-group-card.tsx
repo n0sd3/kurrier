@@ -49,18 +49,23 @@ export default function DuplicateGroupCard({ group }: { group: DuplicateGroup })
 		setBusy(true);
 		setError(null);
 
-		const result = await mergeContacts({
-			survivorId: plan.survivorId,
-			mergedIds: plan.mergedIds,
-			fields: chosen,
-			emails: plan.emails,
-			phones: plan.phones,
-			addresses: plan.addresses,
-		});
+		try {
+			const result = await mergeContacts({
+				survivorId: plan.survivorId,
+				mergedIds: plan.mergedIds,
+				fields: chosen,
+				emails: plan.emails,
+				phones: plan.phones,
+				addresses: plan.addresses,
+			});
 
-		setBusy(false);
-		if (result.success) setMerged(true);
-		else setError(result.error ?? "Merge failed");
+			if (result.success) setMerged(true);
+			else setError(result.error ?? "Merge failed");
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "Merge failed");
+		} finally {
+			setBusy(false);
+		}
 	};
 
 	return (
