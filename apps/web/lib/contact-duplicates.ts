@@ -17,6 +17,7 @@ export type DuplicateCandidate = {
 	jobTitle?: string | null;
 	department?: string | null;
 	notes?: string | null;
+	dob?: string | null;
 	profilePicture?: string | null;
 	profilePictureXs?: string | null;
 	createdAt?: string | Date | null;
@@ -168,6 +169,7 @@ export type ScalarField =
 	| "jobTitle"
 	| "department"
 	| "notes"
+	| "dob"
 	| "profilePicture"
 	| "profilePictureXs";
 
@@ -192,6 +194,7 @@ const SCALAR_FIELDS: ScalarField[] = [
 	"jobTitle",
 	"department",
 	"notes",
+	"dob",
 	"profilePicture",
 	"profilePictureXs",
 ];
@@ -232,7 +235,7 @@ function createdAtTime(contact: DuplicateCandidate): number {
 }
 
 /** Richest first; ties break to the oldest, then by id so it is deterministic. */
-function byMergePriority(
+export function byMergePriority(
 	a: DuplicateCandidate,
 	b: DuplicateCandidate,
 ): number {

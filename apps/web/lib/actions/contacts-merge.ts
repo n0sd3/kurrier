@@ -58,6 +58,7 @@ export async function mergeContacts(input: MergeContactsInput) {
 				jobTitle: input.fields.jobTitle,
 				department: input.fields.department,
 				notes: input.fields.notes,
+				dob: input.fields.dob,
 				profilePicture: input.fields.profilePicture,
 				profilePictureXs: input.fields.profilePictureXs,
 				emails: input.emails,

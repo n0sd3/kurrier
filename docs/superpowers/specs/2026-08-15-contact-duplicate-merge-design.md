@@ -116,7 +116,7 @@ unioned onto the survivor and deduplicated by normalized value (emails
 case-insensitively, phones digits-only).
 
 **Conflicting scalar fields.** For `firstName`, `lastName`, `company`, `jobTitle`,
-`department`, `notes`, and `profilePicture`/`profilePictureXs`, the survivor's
+`department`, `notes`, `dob`, and `profilePicture`/`profilePictureXs`, the survivor's
 non-empty value is pre-selected; if the survivor's value is empty, the highest-scored
 non-empty value from the group is used. Every distinct alternative is returned
 alongside so the UI can offer it.
@@ -209,3 +209,17 @@ before the work is considered done.
 | `apps/web/lib/actions/contacts-merge.ts` | new — merge server action |
 | `apps/web/lib/contact-search.ts` | unchanged — `normalizeForSearch` is already exported and reused as-is |
 | contacts page / shell | new — entry point and Duplicates view |
+
+## Accepted deviations
+
+1. `MergePlan.labelIds` was not implemented. Label union is done in SQL in the
+   server action (`INSERT ... SELECT ... ON CONFLICT DO NOTHING` on
+   `pk_contact_labels`). Consequence: the label-carrying SQL has no automated
+   test coverage, because unit-testing it would need a database harness this
+   repo does not have. It was exercised by the live end-to-end merge.
+2. After a successful merge the card hides itself via local state while the
+   losing contacts still exist in Postgres until the worker's
+   `dav:delete-contact` jobs complete. On a manual page reload before those
+   jobs land, the group reappears in full. Re-merging is idempotent and
+   converges. A client refresh would make this worse, since deletion is
+   asynchronous.

@@ -230,6 +230,24 @@ test("falls back to another contact's value when the survivor's is empty", () =>
 	assert.equal(plan.fields.notes.selected, "met at the fair");
 });
 
+test("preserves a birthday held only by a non-survivor contact", () => {
+	const plan = buildMergePlan({
+		reasons: ["name"],
+		contacts: [
+			contact("rich", {
+				firstName: "Ana",
+				lastName: "Lima",
+				company: "Acme",
+				emails: [{ address: "a@x.com" }],
+			}),
+			contact("other", { firstName: "Ana", lastName: "Lima", dob: "1990-05-12" }),
+		],
+	});
+
+	assert.equal(plan.survivorId, "rich");
+	assert.equal(plan.fields.dob.selected, "1990-05-12");
+});
+
 test("breaks score ties toward the oldest contact", () => {
 	const plan = buildMergePlan({
 		reasons: ["name"],
