@@ -5,6 +5,7 @@ import ContactsList, {
 	ContactWithFavorite,
 } from "@/components/dashboard/contacts/contacts-list";
 import NewContactButton from "@/components/dashboard/contacts/new-contact-button";
+import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useMediaQuery } from "@mantine/hooks";
 import { Search } from "lucide-react";
@@ -39,8 +40,10 @@ export default function ContactsShell({
 	const hasContactId = typeof params.contactsPublicId === "string";
 	const isNewRoute = pathname.endsWith("/new");
 	const isEditRoute = pathname.endsWith("/edit");
+	const isDuplicatesRoute = pathname.endsWith("/duplicates");
 
-	const isDetailRoute = hasContactId || isNewRoute || isEditRoute;
+	const isDetailRoute =
+		hasContactId || isNewRoute || isEditRoute || isDuplicatesRoute;
 
 	const showList = !isMobile || !isDetailRoute;
 	const showDetail = !isMobile || isDetailRoute;
@@ -64,6 +67,12 @@ export default function ContactsShell({
 									All contacts
 								</span>
 								<div className={"flex gap-2"}>
+									<Link
+										href={`/w/${workspacePublicId}/dashboard/contacts/duplicates`}
+										className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+									>
+										Duplicates
+									</Link>
 									<NewContactButton workspacePublicId={workspacePublicId} />
 								</div>
 							</div>
