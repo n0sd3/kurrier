@@ -5,11 +5,25 @@ import {
 	davAccounts,
 	secretsMeta,
 	getSecretAdmin,
+	labels,
+	contactLabels,
 } from "@db";
 import { and, desc, eq } from "drizzle-orm";
 import DigestFetch from "digest-fetch";
 import { buildVCard } from "./dav-build-card";
 import { normalizeEtag } from "./sync/dav-sync-db";
+import { pushUpdateContact } from "./dav-update-contact";
+
+/** Nomes dos labels do contato, para o `CATEGORIES` do cartão (§1). */
+async function fetchContactLabelNames(contactId: string) {
+	const rows = await db
+		.select({ name: labels.name })
+		.from(contactLabels)
+		.innerJoin(labels, eq(contactLabels.labelId, labels.id))
+		.where(eq(contactLabels.contactId, contactId));
+
+	return rows.map((r) => r.name);
+}
 
 export async function createContactViaHttp(opts: {
 	carddata: string;
@@ -38,6 +52,11 @@ export async function createContactViaHttp(opts: {
 		body: carddata,
 	});
 
+	// 412 com If-None-Match: * = o cartão já existe lá. Não é erro, é pull+merge (§2).
+	if (res.status === 412) {
+		return { etag: null, alreadyExists: true };
+	}
+
 	if (!(res.status === 200 || res.status === 201 || res.status === 204)) {
 		const text = await res.text().catch(() => "");
 		throw new Error(
@@ -46,7 +65,7 @@ export async function createContactViaHttp(opts: {
 	}
 
 	const etag = res.headers.get("etag") ?? null;
-	return { etag };
+	return { etag, alreadyExists: false };
 }
 
 
@@ -91,10 +110,13 @@ export const createContact = async (contactId: string, ownerId: string) => {
 		return;
 	}
 
-	const carddata = await buildVCard(contact);
+	const carddata = await buildVCard(
+		contact,
+		await fetchContactLabelNames(contact.id),
+	);
 	const davUri = `${contact.id}.vcf`;
 
-	const { etag } = await createContactViaHttp({
+	const { etag, alreadyExists } = await createContactViaHttp({
 		carddata,
 		davBaseUrl: `${process.env.DAV_URL}/dav.php`,
 		username: davUsername,
@@ -111,6 +133,14 @@ export const createContact = async (contactId: string, ownerId: string) => {
 			updatedAt: new Date(),
 		})
 		.where(eq(contacts.id, contact.id));
+
+	// Já existia no servidor: o caminho de update faz GET + merge do cartão remoto.
+	if (alreadyExists) {
+		console.warn(
+			`[DAV] cartão ${davUri} já existia no servidor, caindo para update com merge`,
+		);
+		return pushUpdateContact(contact.id, ownerId);
+	}
 
 	return { success: true };
 };

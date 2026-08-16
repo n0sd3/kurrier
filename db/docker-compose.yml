@@ -52,6 +52,8 @@ services:
     volumes:
       - ./dav_config:/var/www/baikal/config
       - ./dav_data:/var/www/baikal/Specific
+      # absolute_redirect off, so /.well-known discovery keeps https behind the tunnel
+      - ./dav_nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
   typesense:
     image: typesense/typesense:29.0

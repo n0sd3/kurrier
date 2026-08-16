@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { lookup } from "mime-types";
-import { ContactEntity } from "@db";
+import type { ContactEntity } from "@db";
 import { getCountryDataList } from "countries-list";
 import {GetObjectCommand} from "@aws-sdk/client-s3";
 import {s3} from "../../lib/create-s3-client";
@@ -8,9 +8,37 @@ import {s3} from "../../lib/create-s3-client";
 function escapeVCardValue(value: string) {
 	return value
 		.replace(/\\/g, "\\\\")
+		.replace(/\r\n?/g, "\n")
 		.replace(/\n/g, "\\n")
 		.replace(/,/g, "\\,")
 		.replace(/;/g, "\\;");
+}
+
+/**
+ * Line folding do RFC 6350 §3.2: primeira linha com no máximo 75 octetos,
+ * continuações com no máximo 74 octetos e prefixadas por um espaço.
+ * O corte é feito em octetos (não em caracteres) sem partir sequência UTF-8.
+ */
+export function foldLine(line: string) {
+	const buf = Buffer.from(line, "utf8");
+	if (buf.length <= 75) return line;
+
+	const chunks: string[] = [];
+	let start = 0;
+	let limit = 75;
+
+	while (start < buf.length) {
+		let end = Math.min(start + limit, buf.length);
+		// recua enquanto o byte de corte for continuação UTF-8 (10xxxxxx)
+		while (end > start + 1 && end < buf.length && (buf[end] & 0xc0) === 0x80) {
+			end--;
+		}
+		chunks.push(buf.subarray(start, end).toString("utf8"));
+		start = end;
+		limit = 74;
+	}
+
+	return chunks.join("\r\n ");
 }
 
 const countryData = getCountryDataList();
@@ -109,9 +137,12 @@ export async function buildVCard(
 
 	await addPhotoToVCard(lines, contact);
 	if (labelItems?.length) {
-		lines.push(`CATEGORIES:${labelItems.join(",")}`);
+		const cats = labelItems
+			.filter((l): l is string => Boolean(l))
+			.map(escapeVCardValue);
+		if (cats.length) lines.push(`CATEGORIES:${cats.join(",")}`);
 	}
 	lines.push(`UID:${contact.id}`);
 	lines.push("END:VCARD");
-	return lines.join("\r\n");
+	return lines.map(foldLine).join("\r\n");
 }

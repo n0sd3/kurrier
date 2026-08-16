@@ -7,11 +7,17 @@ import {
 	getSecretAdmin,
 	labels,
 	contactLabels,
+	ContactEntity,
 } from "@db";
 import { and, desc, eq } from "drizzle-orm";
 import DigestFetch from "digest-fetch";
 import { buildVCard } from "./dav-build-card";
 import { normalizeEtag } from "./sync/dav-sync-db";
+import {
+	ParsedContactFields,
+	mergeRemoteIntoLocal,
+	parseVCardToContact,
+} from "./sync/dav-vcard";
 
 export async function updateContactViaHttp(opts: {
 	carddata: string;
@@ -43,27 +49,32 @@ export async function updateContactViaHttp(opts: {
 		"Content-Type": "text/vcard; charset=utf-8",
 	};
 
-	const ifMatch = `"${etag}"`;
-	if (ifMatch) {
-		headers["If-Match"] = ifMatch;
+	// Só condiciona quando existe ETag conhecido; antes mandava literalmente
+	// `If-Match: "null"`, o que garantia 412 em todo primeiro update.
+	if (etag) {
+		headers["If-Match"] = `"${etag}"`;
 	}
 
-	let res = await digestFetch(url, {
+	const res = await digestFetch(url, {
 		method: "PUT",
 		headers,
 		body: carddata,
 	});
 
-	if (res.status === 412 && headers["If-Match"]) {
-		delete headers["If-Match"];
-		res = await digestFetch(url, {
-			method: "PUT",
-			headers,
-			body: carddata,
-		});
+	if (res.status === 412) {
+		// Conflito: nunca sobrescrever às cegas, devolve o cartão remoto para merge.
+		const remote = await digestFetch(url, { method: "GET" });
+		const remoteCard = remote.ok ? await remote.text() : null;
+		return {
+			etag: null,
+			conflict: {
+				remoteCard,
+				remoteEtag: normalizeEtag(remote.headers.get("etag")),
+			},
+		};
 	}
 
-	if (!(res.status === 200 || res.status === 204)) {
+	if (!(res.status === 200 || res.status === 204 || res.status === 201)) {
 		const text = await res.text().catch(() => "");
 		console.error(
 			`CardDAV PUT (update) failed (${res.status} ${res.statusText}): ${text}`,
@@ -71,9 +82,8 @@ export async function updateContactViaHttp(opts: {
 	}
 
 	const newEtag = res.headers.get("etag") ?? null;
-	return { etag: normalizeEtag(newEtag) };
+	return { etag: normalizeEtag(newEtag), conflict: null };
 }
-
 
 // export const updateContact = async (contactId: string, ownerId: string) => {
 export const pushUpdateContact = async (contactId: string, ownerId: string) => {
@@ -130,21 +140,56 @@ export const pushUpdateContact = async (contactId: string, ownerId: string) => {
 
 	const davUri = contact.davUri ?? `${contact.id}.vcf`;
 
-	const carddata = await buildVCard(contact, labelItems);
-
-	const { etag: newEtag } = await updateContactViaHttp({
-		carddata,
+	const httpOpts = {
 		davBaseUrl: `${process.env.DAV_URL}/dav.php`,
 		username: davUsername,
 		password: passwordFromSecret,
 		collectionPath,
 		davUri,
+	};
+
+	let { etag: newEtag, conflict } = await updateContactViaHttp({
+		...httpOpts,
+		carddata: await buildVCard(contact, labelItems),
 		etag: contact.davEtag,
 	});
+
+	let mergedFields: ReturnType<typeof mergeRemoteIntoLocal> | null = null;
+
+	if (conflict) {
+		console.warn(
+			`[DAV] conflito 412 no contato ${contact.id} (${davUri}). vCard remoto:\n${conflict.remoteCard ?? "<GET falhou>"}`,
+		);
+
+		if (!conflict.remoteCard) return null;
+
+		mergedFields = mergeRemoteIntoLocal(
+			contact,
+			parseVCardToContact(conflict.remoteCard),
+		);
+
+		const retry = await updateContactViaHttp({
+			...httpOpts,
+			carddata: await buildVCard(
+				{ ...contact, ...mergedFields } as ContactEntity,
+				labelItems,
+			),
+			etag: conflict.remoteEtag,
+		});
+
+		if (retry.conflict) {
+			console.error(
+				`[DAV] conflito 412 persistente no contato ${contact.id}, push abortado`,
+			);
+			return null;
+		}
+		newEtag = retry.etag;
+	}
 
 	await db
 		.update(contacts)
 		.set({
+			...(mergedFields ?? {}),
 			davUri,
 			davEtag: newEtag ?? contact.davEtag,
 			updatedAt: new Date(),

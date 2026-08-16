@@ -37,7 +37,19 @@ export async function deleteContactViaHttp(opts: {
 	});
 
 	if (res.status === 412 && headers["If-Match"]) {
-		delete headers["If-Match"];
+		// O cartão mudou no servidor. Registra o que vai ser descartado e repete
+		// com o ETag corrente — nunca um DELETE incondicional (§2).
+		const remote = await digestFetch(url, { method: "GET" });
+		const freshEtag = remote.headers.get("etag");
+		console.warn(
+			`[DAV] conflito 412 ao apagar ${davUri}. vCard remoto descartado:\n${
+				remote.ok ? await remote.text() : "<GET falhou>"
+			}`,
+		);
+
+		if (!freshEtag) return { success: false };
+
+		headers["If-Match"] = freshEtag;
 		res = await digestFetch(url, {
 			method: "DELETE",
 			headers,

@@ -96,17 +96,30 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 		[];
 
 	function formatDob(dob?: string | null) {
-		if (!dob) return "Not specified";
-		try {
-			return new Date(dob).toLocaleDateString(undefined, {
-				year: "numeric",
-				month: "short",
-				day: "numeric",
-			});
-		} catch {
-			return dob;
-		}
+		if (!dob) return null;
+		// `new Date("YYYY-MM-DD")` é UTC e volta um dia em fuso negativo; monta local.
+		const iso = dob.match(/^(\d{4})-(\d{2})-(\d{2})/);
+		if (!iso) return dob;
+		return new Date(
+			Number(iso[1]),
+			Number(iso[2]) - 1,
+			Number(iso[3]),
+		).toLocaleDateString(undefined, {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+		});
 	}
+
+	const dobLabel = formatDob(contact.dob);
+
+	// §3 do contrato: campo vazio some da página, nada de placeholder.
+	const detailFields = [
+		{ icon: "@", label: "Primary email", value: emails[0]?.address ?? null },
+		{ icon: "☎", label: "Primary phone", value: phones.length ? formatPhone(phones[0]) : null },
+		{ icon: "🎂", label: "Birthday", value: dobLabel },
+		{ icon: "🏢", label: "Department", value: contact.department || null },
+	].filter((f) => f.value);
 
 	const workspacePublicId = await getWorkspacePublicId()
 	return (
@@ -223,59 +236,23 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 							)}
 						</header>
 
-						<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-							<div className="space-y-1.5">
-								<dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-									<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] text-primary dark:bg-primary/25">
-										@
-									</span>
-									<span>Primary email</span>
-								</dt>
-								<dd className="rounded-xl bg-white/70 px-3 py-2 text-[13px] text-foreground/90 ring-1 ring-white/40 backdrop-blur-sm dark:bg-slate-900/70 dark:text-slate-50 dark:ring-slate-900/80">
-									{emails.length > 0 && emails[0]?.address ? (
-										emails[0].address
-									) : (
-										<span className="text-muted-foreground/70">
-											Not specified
-										</span>
-									)}
-								</dd>
-							</div>
-
-							<div className="space-y-1.5">
-								<dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-									<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] text-primary dark:bg-primary/25">
-										☎
-									</span>
-									<span>Primary phone</span>
-								</dt>
-								<dd className="rounded-xl bg-white/70 px-3 py-2 text-[13px] text-foreground/90 ring-1 ring-white/40 backdrop-blur-sm dark:bg-slate-900/70 dark:text-slate-50 dark:ring-slate-900/80">
-									{phones.length > 0 && phones[0]?.number ? (
-										formatPhone(phones[0])
-									) : (
-										<span className="text-muted-foreground/70">
-											Not specified
-										</span>
-									)}
-								</dd>
-							</div>
-
-							<div className="space-y-1.5">
-								<dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-									<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] text-primary dark:bg-primary/25">
-										🎂
-									</span>
-									<span>Birthday</span>
-								</dt>
-								<dd className="rounded-xl bg-white/70 px-3 py-2 text-[13px] text-foreground/90 ring-1 ring-white/40 backdrop-blur-sm dark:bg-slate-900/70 dark:text-slate-50 dark:ring-slate-900/80">
-									{formatDob(contact.dob) ?? (
-										<span className="text-muted-foreground/70">
-											Not specified
-										</span>
-									)}
-								</dd>
-							</div>
-						</dl>
+						{detailFields.length > 0 && (
+							<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+								{detailFields.map((field) => (
+									<div key={field.label} className="space-y-1.5">
+										<dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+											<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] text-primary dark:bg-primary/25">
+												{field.icon}
+											</span>
+											<span>{field.label}</span>
+										</dt>
+										<dd className="rounded-xl bg-white/70 px-3 py-2 text-[13px] text-foreground/90 ring-1 ring-white/40 backdrop-blur-sm dark:bg-slate-900/70 dark:text-slate-50 dark:ring-slate-900/80">
+											{field.value}
+										</dd>
+									</div>
+								))}
+							</dl>
+						)}
 
 						{(emails.length > 1 || phones.length > 1) && (
 							<div className="mt-5 grid gap-4 md:grid-cols-2">

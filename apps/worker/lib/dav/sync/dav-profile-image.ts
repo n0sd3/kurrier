@@ -11,7 +11,12 @@ export async function davParsePhoto(
 	newContactPublicId: string,
 	payload: Partial<ContactEntity>,
 ) {
-	if (!parsed.photo) return;
+	// Sem PHOTO no cartão remoto = foto removida: limpa para a UI não segurar a antiga.
+	if (!parsed.photo) {
+		payload.profilePicture = null;
+		payload.profilePictureXs = null;
+		return;
+	}
 
 	const basePath = `private/${book.ownerId}/contacts/${newContactPublicId}`;
 	const ext = parsed.photo.ext;

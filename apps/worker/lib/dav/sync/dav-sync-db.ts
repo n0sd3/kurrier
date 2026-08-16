@@ -1,11 +1,14 @@
 import {
 	AddressBookEntity,
 	addressBooks,
+	contactLabels,
 	ContactEntity,
 	contacts,
 	db,
+	labels,
 } from "@db";
-import {and, eq, isNull} from "drizzle-orm";
+import {and, eq, inArray, isNull, notInArray} from "drizzle-orm";
+import slugify from "@sindresorhus/slugify";
 import {davAddressbooks, davCards, DavCardsEntity, davDb} from "../dav-schema";
 import { parseVCardToContact } from "./dav-vcard";
 import { nanoid } from "nanoid";
@@ -15,6 +18,78 @@ import {createContact} from "../../../lib/dav/dav-create-contact";
 const fetchContactData = async (card: DavCardsEntity) => {
 	const vcardBytes = card.carddata as Uint8Array;
 	return Buffer.from(vcardBytes).toString("utf8");
+};
+
+/**
+ * Reconcilia `CATEGORIES` do cartão com os labels de contato (§1). Ausência da
+ * propriedade significa "sem tags", então os vínculos existentes são removidos.
+ */
+const syncContactCategories = async (
+	contactId: string,
+	book: AddressBookEntity,
+	categories: string[],
+) => {
+	const wanted = [...new Set(categories.map((c) => c.trim()).filter(Boolean))];
+
+	if (!wanted.length) {
+		await db.delete(contactLabels).where(eq(contactLabels.contactId, contactId));
+		return;
+	}
+
+	const slugs = wanted.map((name) => slugify(name.toLowerCase()));
+
+	const existing = await db
+		.select()
+		.from(labels)
+		.where(
+			and(
+				eq(labels.workspaceId, book.workspaceId),
+				eq(labels.scope, "contact"),
+				inArray(labels.slug, slugs),
+			),
+		);
+
+	const bySlug = new Map(existing.map((l) => [l.slug, l]));
+
+	for (let i = 0; i < wanted.length; i++) {
+		if (bySlug.has(slugs[i])) continue;
+		const [created] = await db
+			.insert(labels)
+			.values({
+				name: wanted[i],
+				slug: slugs[i],
+				scope: "contact",
+				ownerId: book.ownerId,
+				workspaceId: book.workspaceId,
+			})
+			.onConflictDoNothing()
+			.returning();
+		if (created) bySlug.set(created.slug, created);
+	}
+
+	const labelIds = slugs.map((s) => bySlug.get(s)?.id).filter(Boolean) as string[];
+	if (!labelIds.length) return;
+
+	await db
+		.delete(contactLabels)
+		.where(
+			and(
+				eq(contactLabels.contactId, contactId),
+				notInArray(contactLabels.labelId, labelIds),
+			),
+		);
+
+	await db
+		.insert(contactLabels)
+		.values(
+			labelIds.map((labelId) => ({
+				contactId,
+				labelId,
+				ownerId: book.ownerId,
+				workspaceId: book.workspaceId,
+			})),
+		)
+		.onConflictDoNothing();
 };
 
 const createContactFromDav = async ({
@@ -46,6 +121,11 @@ const createContactFromDav = async ({
 		.values(payload)
 		.onConflictDoNothing()
 		.returning();
+
+	if (inserted) {
+		await syncContactCategories(inserted.id, book, parsed.categories ?? []);
+	}
+
 	return inserted;
 };
 
@@ -76,6 +156,8 @@ const updateContact = async ({
 		.set(payload)
 		.where(eq(contacts.id, localContact.id))
 		.returning();
+
+	await syncContactCategories(localContact.id, book, parsed.categories ?? []);
 
 	return contact;
 };
