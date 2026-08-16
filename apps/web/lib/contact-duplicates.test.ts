@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
 	findDuplicateGroups,
+	buildMergePlan,
+	scoreContact,
 	type DuplicateCandidate,
 } from "./contact-duplicates";
 
@@ -128,4 +130,114 @@ test("sorts the largest group first", () => {
 	assert.equal(groups.length, 2);
 	assert.equal(groups[0].contacts.length, 3);
 	assert.equal(groups[1].contacts.length, 2);
+});
+
+test("scores a richer contact above a sparser one", () => {
+	const rich = contact("rich", {
+		firstName: "Ana",
+		lastName: "Lima",
+		company: "Acme",
+		profilePictureXs: "private/u/x_xs.jpg",
+		emails: [{ address: "ana@acme.com" }],
+	});
+	const sparse = contact("sparse", { firstName: "Ana" });
+
+	assert.ok(scoreContact(rich) > scoreContact(sparse));
+});
+
+test("picks the richest contact as survivor and unions contact points", () => {
+	const plan = buildMergePlan({
+		reasons: ["name"],
+		contacts: [
+			contact("sparse", {
+				firstName: "Ana",
+				emails: [{ address: "ana.alt@x.com" }],
+				phones: [{ code: "+55", number: "11 99988-7766" }],
+			}),
+			contact("rich", {
+				firstName: "Ana",
+				lastName: "Lima",
+				company: "Acme",
+				profilePictureXs: "private/u/x_xs.jpg",
+				emails: [{ address: "ana@acme.com" }],
+			}),
+		],
+	});
+
+	assert.equal(plan.survivorId, "rich");
+	assert.deepEqual(plan.mergedIds, ["sparse"]);
+	assert.deepEqual(
+		plan.emails.map((e) => e.address).sort(),
+		["ana.alt@x.com", "ana@acme.com"],
+	);
+	assert.equal(plan.phones.length, 1);
+});
+
+test("deduplicates emails case-insensitively and phones by digits", () => {
+	const plan = buildMergePlan({
+		reasons: ["name"],
+		contacts: [
+			contact("a", {
+				firstName: "Ana",
+				emails: [{ address: "Ana@X.com" }],
+				phones: [{ code: "+55", number: "(11) 99988-7766" }],
+			}),
+			contact("b", {
+				firstName: "Ana",
+				emails: [{ address: "ana@x.com" }],
+				phones: [{ code: null, number: "5511999887766" }],
+			}),
+		],
+	});
+
+	assert.equal(plan.emails.length, 1);
+	assert.equal(plan.phones.length, 1);
+});
+
+test("prefers the survivor's value and lists alternatives", () => {
+	const plan = buildMergePlan({
+		reasons: ["name"],
+		contacts: [
+			contact("rich", {
+				firstName: "Ana",
+				lastName: "Lima",
+				company: "Acme",
+				emails: [{ address: "a@x.com" }],
+			}),
+			contact("other", { firstName: "Ana", lastName: "Lima", company: "Globex" }),
+		],
+	});
+
+	assert.equal(plan.survivorId, "rich");
+	assert.equal(plan.fields.company.selected, "Acme");
+	assert.deepEqual([...plan.fields.company.alternatives].sort(), ["Acme", "Globex"]);
+});
+
+test("falls back to another contact's value when the survivor's is empty", () => {
+	const plan = buildMergePlan({
+		reasons: ["name"],
+		contacts: [
+			contact("rich", {
+				firstName: "Ana",
+				lastName: "Lima",
+				emails: [{ address: "a@x.com" }, { address: "b@x.com" }],
+			}),
+			contact("other", { firstName: "Ana", lastName: "Lima", notes: "met at the fair" }),
+		],
+	});
+
+	assert.equal(plan.survivorId, "rich");
+	assert.equal(plan.fields.notes.selected, "met at the fair");
+});
+
+test("breaks score ties toward the oldest contact", () => {
+	const plan = buildMergePlan({
+		reasons: ["name"],
+		contacts: [
+			contact("newer", { firstName: "Ana", createdAt: "2026-05-01T00:00:00.000Z" }),
+			contact("older", { firstName: "Ana", createdAt: "2024-01-01T00:00:00.000Z" }),
+		],
+	});
+
+	assert.equal(plan.survivorId, "older");
 });

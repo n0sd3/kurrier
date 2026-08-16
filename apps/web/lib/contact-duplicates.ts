@@ -160,3 +160,161 @@ export function findDuplicateGroups(
 
 	return groups.sort((a, b) => b.contacts.length - a.contacts.length);
 }
+
+export type ScalarField =
+	| "firstName"
+	| "lastName"
+	| "company"
+	| "jobTitle"
+	| "department"
+	| "notes"
+	| "profilePicture"
+	| "profilePictureXs";
+
+export type FieldChoice = {
+	selected: string | null;
+	alternatives: string[];
+};
+
+export type MergePlan = {
+	survivorId: string;
+	mergedIds: string[];
+	fields: Record<ScalarField, FieldChoice>;
+	emails: { address: string }[];
+	phones: { code: string | null; number: string }[];
+	addresses: ContactAddress[];
+};
+
+const SCALAR_FIELDS: ScalarField[] = [
+	"firstName",
+	"lastName",
+	"company",
+	"jobTitle",
+	"department",
+	"notes",
+	"profilePicture",
+	"profilePictureXs",
+];
+
+function fieldValue(
+	contact: DuplicateCandidate,
+	field: ScalarField,
+): string | null {
+	const raw = contact[field];
+	if (typeof raw !== "string") return null;
+	const trimmed = raw.trim();
+	return trimmed === "" ? null : trimmed;
+}
+
+export function scoreContact(contact: DuplicateCandidate): number {
+	let score = 0;
+
+	for (const field of SCALAR_FIELDS) {
+		if (field === "profilePicture" || field === "profilePictureXs") continue;
+		if (fieldValue(contact, field)) score += 1;
+	}
+
+	if (fieldValue(contact, "profilePicture") || fieldValue(contact, "profilePictureXs")) {
+		score += 2;
+	}
+
+	score += (contact.emails ?? []).length;
+	score += (contact.phones ?? []).length;
+	score += (contact.addresses ?? []).length;
+
+	return score;
+}
+
+function createdAtTime(contact: DuplicateCandidate): number {
+	if (!contact.createdAt) return Number.MAX_SAFE_INTEGER;
+	const time = new Date(contact.createdAt).getTime();
+	return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time;
+}
+
+/** Richest first; ties break to the oldest, then by id so it is deterministic. */
+function byMergePriority(
+	a: DuplicateCandidate,
+	b: DuplicateCandidate,
+): number {
+	const scoreDiff = scoreContact(b) - scoreContact(a);
+	if (scoreDiff !== 0) return scoreDiff;
+
+	const timeDiff = createdAtTime(a) - createdAtTime(b);
+	if (timeDiff !== 0) return timeDiff;
+
+	return a.id.localeCompare(b.id);
+}
+
+export function buildMergePlan(group: DuplicateGroup): MergePlan {
+	const ordered = [...group.contacts].sort(byMergePriority);
+	const survivor = ordered[0];
+	const others = ordered.slice(1);
+
+	const fields = {} as Record<ScalarField, FieldChoice>;
+
+	for (const field of SCALAR_FIELDS) {
+		const alternatives: string[] = [];
+		for (const contact of ordered) {
+			const value = fieldValue(contact, field);
+			if (value && !alternatives.includes(value)) alternatives.push(value);
+		}
+
+		fields[field] = {
+			selected: fieldValue(survivor, field) ?? alternatives[0] ?? null,
+			alternatives,
+		};
+	}
+
+	const emails: { address: string }[] = [];
+	const seenEmails = new Set<string>();
+	for (const contact of ordered) {
+		for (const email of contact.emails ?? []) {
+			const key = normalizeForSearch(email?.address ?? "");
+			if (!key || seenEmails.has(key)) continue;
+			seenEmails.add(key);
+			emails.push({ address: email.address });
+		}
+	}
+
+	const phones: { code: string | null; number: string }[] = [];
+	const seenPhones = new Set<string>();
+	for (const contact of ordered) {
+		for (const phone of contact.phones ?? []) {
+			const key = `${phone?.code ?? ""}${phone?.number ?? ""}`.replace(/\D/g, "");
+			if (!key || seenPhones.has(key)) continue;
+			seenPhones.add(key);
+			phones.push({ code: phone.code ?? null, number: phone.number });
+		}
+	}
+
+	const addresses: ContactAddress[] = [];
+	const seenAddresses = new Set<string>();
+	for (const contact of ordered) {
+		for (const address of contact.addresses ?? []) {
+			const key = normalizeForSearch(
+				[
+					address.streetAddress,
+					address.streetAddressLine2,
+					address.city,
+					address.state,
+					address.code,
+					address.country,
+				]
+					.filter(Boolean)
+					.join(" "),
+			);
+			if (!key || seenAddresses.has(key)) continue;
+			seenAddresses.add(key);
+			addresses.push(address);
+		}
+	}
+
+	return {
+		survivorId: survivor.id,
+		mergedIds: others.map((c) => c.id),
+		fields,
+		emails,
+		phones,
+		addresses,
+	};
+}
