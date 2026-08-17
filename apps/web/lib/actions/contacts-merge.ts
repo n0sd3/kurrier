@@ -28,9 +28,14 @@ export async function mergeContacts(input: MergeContactsInput) {
 	if (mergedIds.length === 0) {
 		return { success: false, error: "Nothing to merge" };
 	}
-	if (!input.fields.firstName) {
-		return { success: false, error: "The surviving contact needs a first name" };
+	if (!input.fields.firstName && !input.fields.lastName) {
+		return { success: false, error: "The surviving contact needs a name" };
 	}
+
+	// first_name is NOT NULL in the schema; contacts whose name lives entirely
+	// in last_name (first_name === "") must promote it so the write is valid.
+	const resolvedFirstName = input.fields.firstName || input.fields.lastName || "";
+	const resolvedLastName = input.fields.firstName ? input.fields.lastName : null;
 
 	const allIds = [input.survivorId, ...mergedIds];
 	const rls = await rlsClient();
@@ -52,8 +57,8 @@ export async function mergeContacts(input: MergeContactsInput) {
 		await tx
 			.update(contacts)
 			.set({
-				firstName: input.fields.firstName as string,
-				lastName: input.fields.lastName,
+				firstName: resolvedFirstName,
+				lastName: resolvedLastName,
 				company: input.fields.company,
 				jobTitle: input.fields.jobTitle,
 				department: input.fields.department,

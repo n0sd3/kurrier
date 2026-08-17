@@ -190,7 +190,9 @@ export default function DuplicateGroupCard({ group }: { group: DuplicateGroup })
 									}
 									className={[
 										"flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
-										isSelected ? "border-brand bg-brand-100" : "",
+										isSelected
+											? "border-brand bg-brand-100 text-brand dark:bg-neutral-800 dark:text-white"
+											: "",
 									].join(" ")}
 								>
 									<ContactListAvatar
@@ -213,7 +215,7 @@ export default function DuplicateGroupCard({ group }: { group: DuplicateGroup })
 							className={[
 								"rounded-md border px-2 py-1 text-xs",
 								chosen.profilePicture === null && chosen.profilePictureXs === null
-									? "border-brand bg-brand-100"
+									? "border-brand bg-brand-100 text-brand dark:bg-neutral-800 dark:text-white"
 									: "",
 							].join(" ")}
 						>
@@ -239,7 +241,9 @@ export default function DuplicateGroupCard({ group }: { group: DuplicateGroup })
 									onClick={() => setChosen((prev) => ({ ...prev, [field]: value }))}
 									className={[
 										"rounded-md border px-2 py-1 text-xs",
-										chosen[field] === value ? "border-brand bg-brand-100" : "",
+										chosen[field] === value
+											? "border-brand bg-brand-100 text-brand dark:bg-neutral-800 dark:text-white"
+											: "",
 									].join(" ")}
 								>
 									{value}
