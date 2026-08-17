@@ -467,7 +467,7 @@ export default function ManageInstanceUsers({
 		{
 			name: "userId",
 			wrapperClasses: "hidden",
-			props: { hidden: true, defaultValue: target?.id ?? "" },
+			props: { type: "hidden", defaultValue: target?.id ?? "" },
 		},
 		{
 			name: "password",
