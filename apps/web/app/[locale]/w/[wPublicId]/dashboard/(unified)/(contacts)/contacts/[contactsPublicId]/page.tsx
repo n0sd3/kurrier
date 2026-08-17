@@ -365,7 +365,9 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 									Notes
 								</span>
 							</h3>
-							<div className="rounded-xl bg-white/80 px-4 py-3 text-sm leading-relaxed text-foreground/90 dark:bg-slate-900/80 dark:text-slate-50">
+							{/* whitespace-pre-line: o NOTE do vCard carrega quebras de linha
+							    reais e o HTML as colapsaria, juntando tudo numa linha só. */}
+							<div className="whitespace-pre-line rounded-xl bg-white/80 px-4 py-3 text-sm leading-relaxed text-foreground/90 dark:bg-slate-900/80 dark:text-slate-50">
 								{contact.notes}
 							</div>
 						</section>
