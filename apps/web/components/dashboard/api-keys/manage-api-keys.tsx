@@ -3,7 +3,7 @@
 import { Container } from "@/components/common/containers";
 import { Card, TagsInput } from "@mantine/core";
 import { toast } from "sonner";
-import { Temporal } from "@js-temporal/polyfill";
+import { formatDateTime } from "@/lib/format-datetime";
 import * as React from "react";
 
 import { Table, Group, Badge, ActionIcon } from "@mantine/core";
@@ -54,20 +54,6 @@ export default function ManageApiKeys({
 			},
 		},
 	];
-
-	function fmtTemporal(input?: Date | string | null) {
-		if (!input) return "-";
-
-		const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		const instant =
-			input instanceof Date
-				? Temporal.Instant.fromEpochMilliseconds(input.getTime())
-				: Temporal.Instant.from(input);
-
-		return instant
-			.toZonedDateTimeISO(tz)
-			.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-	}
 
 	return (
 		<>
@@ -125,7 +111,7 @@ export default function ManageApiKeys({
 													))}
 												</Group>
 											</Table.Td>
-											<Table.Td>{fmtTemporal(k.createdAt)}</Table.Td>
+											<Table.Td>{formatDateTime(k.createdAt)}</Table.Td>
 											<Table.Td className="text-right flex items-center gap-2 justify-end">
 												<span>Copy API Key{" "}</span>
 												<ActionIcon
