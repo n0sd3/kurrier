@@ -30,6 +30,8 @@ export const ZServerConfig = z.object({
 	S3_ACCESS_KEY: z.string("S3_ACCESS_KEY must be present"),
 	S3_SECRET_KEY: z.string("S3_SECRET_KEY must be present"),
 	S3_FORCE_PATH_STYLE: z.string("S3_FORCE_PATH_STYLE must be present"),
+	/** Comma-separated instance admins. Optional: unset means nobody is an admin. */
+	ADMIN_EMAILS: z.string().optional(),
 });
 
 /** Safe to expose to the browser */
