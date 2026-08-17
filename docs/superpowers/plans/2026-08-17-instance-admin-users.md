@@ -184,7 +184,7 @@ export function validateNewPassword(password?: string | null): string | null {
 npx tsx --test apps/web/lib/instance-admin.test.ts
 ```
 
-Expected: PASS — 13 tests, 0 fail.
+Expected: PASS — 12 tests, 0 fail.
 
 - [ ] **Step 5: Check formatting of the new files only**
 
@@ -350,7 +350,7 @@ export async function setUserPassword(
 npx tsx --test apps/web/lib/instance-admin.test.ts
 ```
 
-Expected: PASS, 13 tests. This module has no unit test of its own: every path needs a database, a session cookie, and Next's request context. It is verified end-to-end in Task 5, which is why Task 5 is not optional.
+Expected: PASS, 12 tests. This module has no unit test of its own: every path needs a database, a session cookie, and Next's request context. It is verified end-to-end in Task 5, which is why Task 5 is not optional.
 
 - [ ] **Step 4: Check formatting of the new file**
 
@@ -659,7 +659,7 @@ This is a separate condition from the `owner` blocks on purpose: instance admin 
 npx tsx --test apps/web/lib/instance-admin.test.ts
 ```
 
-Expected: PASS, 13 tests. The nav itself has no unit test — it is verified visually in Task 5.
+Expected: PASS, 12 tests. The nav itself has no unit test — it is verified visually in Task 5.
 
 - [ ] **Step 6: Commit**
 
