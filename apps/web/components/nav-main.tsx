@@ -10,7 +10,7 @@ import {
 	LayoutDashboard,
 	type LucideIcon,
 	Plug,
-	Send, Webhook,
+	Send, Users, Webhook,
 } from "lucide-react";
 
 import {
@@ -32,7 +32,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function NavMain({workspacePublicId, workspaceRole}: {workspacePublicId?: string, workspaceRole?: string}) {
+export function NavMain({workspacePublicId, workspaceRole, isInstanceAdmin}: {workspacePublicId?: string, workspaceRole?: string, isInstanceAdmin?: boolean}) {
 	const pathname = usePathname();
 
 	const navPlatformItems: {
@@ -99,6 +99,16 @@ export function NavMain({workspacePublicId, workspaceRole}: {workspacePublicId?:
 					title: "Sync Services",
 					url: `/w/${workspacePublicId}/dashboard/platform/sync-services`,
 					icon: FolderSync,
+					items: [],
+				},
+			]
+			: []),
+		...(isInstanceAdmin
+			? [
+				{
+					title: "Instance Users",
+					url: `/w/${workspacePublicId}/dashboard/platform/users`,
+					icon: Users,
 					items: [],
 				},
 			]
