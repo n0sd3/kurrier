@@ -540,10 +540,17 @@ export const initializeMailboxes = async (emailIdentity: IdentityEntity, userId:
 				)
 				.limit(1),
 		);
-		if (sibling) return;
 
-		await backfillMailboxes(emailIdentity.id, emailIdentity.workspaceId);
-		return;
+		if (!sibling) {
+			await backfillMailboxes(emailIdentity.id, emailIdentity.workspaceId);
+			return;
+		}
+
+		// An alias still needs its own local mailbox rows, so fall through to the
+		// system-mailbox path below. Both the mail view and the send path resolve
+		// inbox/sent by identity id, so an identity with no mailboxes at all can
+		// neither be opened nor used as a From address. Its inbox stays empty —
+		// incoming mail belongs to the sibling that owns the IMAP backfill.
 	}
 
 	const rows = SYSTEM_MAILBOXES.map((m) => ({
