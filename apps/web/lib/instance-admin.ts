@@ -27,6 +27,20 @@ export function isInstanceAdminEmail(
 	return parseAdminEmails(raw).includes(email.trim().toLowerCase());
 }
 
+const UUID_PATTERN =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Whether a value can be a user id at all. Postgres raises "invalid input
+ * syntax for type uuid" on anything else, and the server action's error
+ * wrapper would hand that raw message to the browser.
+ */
+export function isUserIdShape(value?: string | null): value is string {
+	if (!value) return false;
+
+	return UUID_PATTERN.test(value);
+}
+
 /** Returns an error message, or null when the password is acceptable. */
 export function validateNewPassword(password?: string | null): string | null {
 	if (!password) return "Password is required";

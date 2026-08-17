@@ -10,6 +10,7 @@ import { notFound } from "next/navigation";
 import { isSignedIn } from "@/lib/actions/auth";
 import {
 	isInstanceAdminEmail,
+	isUserIdShape,
 	validateNewPassword,
 } from "@/lib/instance-admin";
 
@@ -80,17 +81,20 @@ export async function setUserPassword(
 			password?: string;
 		};
 
-		if (!userId) {
-			return { success: false, error: "Missing user" };
+		// Shape-checked before it reaches the query: Postgres would otherwise
+		// raise "invalid input syntax for type uuid", and handleAction hands
+		// that raw message straight to the browser.
+		if (!isUserIdShape(userId)) {
+			return { success: false, error: "Missing or invalid user" };
 		}
 
 		const invalid = validateNewPassword(password);
-		if (invalid) {
-			return { success: false, error: invalid };
+		if (invalid || !password) {
+			return { success: false, error: invalid ?? "Password is required" };
 		}
 
 		// Library defaults, exactly as signup hashes, so login's verify matches.
-		const passwordHash = await argon2.hash(String(password));
+		const passwordHash = await argon2.hash(password);
 
 		const [updated] = await db
 			.update(users)
