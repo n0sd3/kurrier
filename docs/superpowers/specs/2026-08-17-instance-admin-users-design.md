@@ -87,11 +87,16 @@ access predicate with a sibling `.test.ts`.
 
 ### 2. Guard and data access — `apps/web/lib/actions/admin-users.ts` (new, `"use server"`)
 
-**`requireInstanceAdmin()`** — calls `isSignedIn()`
+**`getInstanceAdmin()`** — calls `isSignedIn()`
 ([auth.ts:238](../../../apps/web/lib/actions/auth.ts)), which already resolves
-`{ id, email }` from the session cookie, then applies `isInstanceAdminEmail`. On
-failure it calls `notFound()`. A 404 rather than a 403 keeps the page's existence
-unadvertised to non-admins.
+`{ id, email }` from the session cookie, then applies `isInstanceAdminEmail`. It
+returns `null` on failure rather than throwing, because the two callers need
+different failures: the page calls `notFound()` — a 404 rather than a 403 keeps the
+page's existence unadvertised — while the action returns a form error. The action
+must not call `notFound()`: server actions here are wrapped in `handleAction`, which
+catches everything and would swallow Next's control-flow throw, turning a 404 into a
+misleading "Not authorized" string in the form. A thin
+`isCurrentUserInstanceAdmin(): Promise<boolean>` wraps it for the nav.
 
 **`fetchInstanceUsers()`** — guard first, then query with the admin `db` client
 rather than `rlsClient()`. This bypass is deliberate and is the one place it is
@@ -131,8 +136,13 @@ guard against.
 - `(platform)/platform/users/page.tsx` and `loading.tsx`, following the shape of the
   api-keys page: header with `SidebarTrigger` and `Separator`, then one component.
 - `components/dashboard/admin/manage-instance-users.tsx`: the total count, a table of
-  Email / Created / Workspace, and a per-row dialog taking a new password. Built from
-  the shadcn primitives already in `components/ui`.
+  Email / Created / Workspace, and a per-row dialog taking a new password. Built with
+  Mantine (`Container`, `Card`, `Table`, `Modal`, `Alert`, `Button`) and the repo's
+  `ReusableForm`, matching `manage-api-keys.tsx`. The `components/ui` shadcn
+  primitives are used only for the page chrome (`SidebarTrigger`, `Separator`), which
+  is what the other platform pages do — the tables and forms there are Mantine.
+- The password form is row-scoped rather than a dropdown of accounts: a reset names
+  the account it will affect, so the wrong row cannot be picked by accident.
 - The session limitation below is stated on the page itself, next to the reset
   control, so it is visible at the moment it matters.
 
