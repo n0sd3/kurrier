@@ -1,4 +1,3 @@
-import React from "react";
 import ManageInstanceUsers from "@/components/dashboard/admin/manage-instance-users";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";

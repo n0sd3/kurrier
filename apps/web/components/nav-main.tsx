@@ -113,7 +113,6 @@ export function NavMain({workspacePublicId, workspaceRole, isInstanceAdmin}: {wo
 				},
 			]
 			: []),
-
 	];
 
 	return (
