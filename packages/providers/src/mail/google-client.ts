@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
     db,
     getSecretAdmin,
@@ -40,6 +40,10 @@ async function markGoogleAccountError(
         .set({
             status,
             lastError: message,
+            // Revocation is terminal, so it needs no streak to be believed;
+            // a plain error only earns an alert once it keeps happening.
+            errorCount:
+                status === "error" ? sql`${googleAccounts.errorCount} + 1` : 0,
             updatedAt: new Date(),
         })
         .where(eq(googleAccounts.id, googleAccountId));
@@ -109,6 +113,9 @@ async function buildGoogleClientForAccount(
                         : googleAccount.expiresAt,
                     status: "connected",
                     lastError: null,
+                    errorCount: 0,
+                    alertedStatus: null,
+                    lastAlertedAt: null,
                     updatedAt: new Date(),
                     metaData: {
                         ...(googleAccount.metaData ?? {}),
@@ -172,6 +179,9 @@ async function buildGoogleClientForAccount(
                 .set({
                     status: "connected",
                     lastError: null,
+                    errorCount: 0,
+                    alertedStatus: null,
+                    lastAlertedAt: null,
                     lastSyncedAt: new Date(),
                     updatedAt: new Date(),
                 })
@@ -179,14 +189,7 @@ async function buildGoogleClientForAccount(
         },
 
         markError: async (message: string) => {
-            await db
-                .update(googleAccounts)
-                .set({
-                    status: "error",
-                    lastError: message,
-                    updatedAt: new Date(),
-                })
-                .where(eq(googleAccounts.id, googleAccount.id));
+            await markGoogleAccountError(googleAccount.id, "error", message);
         },
     };
 }

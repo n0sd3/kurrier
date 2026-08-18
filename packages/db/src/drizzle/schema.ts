@@ -1931,6 +1931,12 @@ export const googleAccounts = pgTable(
 
 		lastError: text("last_error").default(sql`null`),
 
+		errorCount: integer("error_count").notNull().default(0),
+
+		alertedStatus: googleAccountStatusEnum("alerted_status").default(sql`null`),
+
+		lastAlertedAt: timestamp("last_alerted_at", { withTimezone: true }).default(sql`null`),
+
 		metaData: jsonb("meta")
 			.$type<Record<string, any> | null>()
 			.default(sql`null`),
@@ -1958,6 +1964,10 @@ export const googleAccounts = pgTable(
 		index("ix_google_accounts_owner").on(t.ownerId),
 		index("ix_google_accounts_identity").on(t.identityId),
 		index("ix_google_accounts_status").on(t.workspaceId, t.status),
+
+		index("ix_google_accounts_alerting")
+			.on(t.status, t.alertedStatus)
+			.where(sql`${t.status} <> 'connected'`),
 
 		...workspaceCrudPolicies(t, "google_accounts"),
 	],

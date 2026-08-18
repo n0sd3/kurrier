@@ -8,6 +8,7 @@ import { processWebhook } from "../../lib/webhooks/message.received";
 import { and, isNull, lte } from "drizzle-orm";
 import { processRules } from "../../lib/rules/rules-processor";
 import { sendPushNotifications } from "../../lib/push/send-push-notifications";
+import { runAccountHealthTick } from "../../lib/accounts/run-account-health-tick";
 
 export default defineNitroPlugin(async (nitroApp) => {
 	const connection = (await getRedis()).connection;
@@ -17,8 +18,15 @@ export default defineNitroPlugin(async (nitroApp) => {
 		async (job) => {
 			switch (job.name) {
 				case "sync-providers": {
-					const { userId, workspaceId } = job.data as { userId: string, workspaceId: string };
-					console.log("[COMMON WORKER] syncing providers for user, workspace", userId, workspaceId);
+					const { userId, workspaceId } = job.data as {
+						userId: string;
+						workspaceId: string;
+					};
+					console.log(
+						"[COMMON WORKER] syncing providers for user, workspace",
+						userId,
+						workspaceId,
+					);
 					await db
 						.insert(providers)
 						.values(
@@ -29,7 +37,11 @@ export default defineNitroPlugin(async (nitroApp) => {
 							})),
 						)
 						.onConflictDoNothing({
-							target: [providers.ownerId, providers.type, providers.workspaceId],
+							target: [
+								providers.ownerId,
+								providers.type,
+								providers.workspaceId,
+							],
 						})
 						.returning();
 					return { success: true };
@@ -48,6 +60,10 @@ export default defineNitroPlugin(async (nitroApp) => {
 						messages: import("../../lib/push/send-push-notifications").PushableMessage[];
 					};
 					await sendPushNotifications({ ownerId, messages });
+					return { success: true };
+				}
+				case "accounts:health-tick": {
+					await runAccountHealthTick();
 					return { success: true };
 				}
 				case "rules:processor": {
@@ -85,6 +101,19 @@ export default defineNitroPlugin(async (nitroApp) => {
 	const scheduler = new JobScheduler("common-worker", { connection });
 
 	await scheduler.upsertJobScheduler(
+		"account-health-tick-scheduler",
+		{ every: 15 * 60 * 1000 },
+		"accounts:health-tick",
+		{},
+		{
+			removeOnComplete: true,
+			removeOnFail: false,
+			attempts: 1,
+		},
+		{ override: true },
+	);
+
+	await scheduler.upsertJobScheduler(
 		"snooze-tick-scheduler",
 		{ every: 60000 },
 		"mail:snooze-tick",
@@ -96,7 +125,6 @@ export default defineNitroPlugin(async (nitroApp) => {
 		},
 		{ override: true },
 	);
-
 
 	await scheduler.upsertJobScheduler(
 		"billing-sync-scheduler",
@@ -139,10 +167,7 @@ export default defineNitroPlugin(async (nitroApp) => {
 		await kvDel("local-tunnel-url");
 		nitroApp.hooks.hookOnce("close", async () => {
 			try {
-				await Promise.allSettled([
-					worker?.close(),
-					scheduler?.close(),
-				]);
+				await Promise.allSettled([worker?.close(), scheduler?.close()]);
 			} catch (err: any) {
 				console.error("Error closing BullMQ resources:", err?.message ?? err);
 			}
