@@ -10,6 +10,7 @@ import {
 import { fetchLabels, fetchMailboxThreadLabels } from "@/lib/actions/labels";
 import { isUnifiedMailboxKind } from "@/lib/unified-mailbox";
 import WebmailList from "@/components/mailbox/default/webmail-list";
+import UnifiedPagination from "@/components/mailbox/default/unified-pagination";
 import { PAGE_SIZE } from "@common/mail-client";
 
 const TITLE: Record<string, string> = {
@@ -31,23 +32,29 @@ export default async function Page({
 
 	if (!isUnifiedMailboxKind(mailboxKind)) notFound();
 
+	const parsedPage = Number(page);
+	const currentPage =
+		Number.isFinite(parsedPage) && parsedPage > 0 ? Math.floor(parsedPage) : 1;
+
 	const publicConfig = getPublicEnv();
 	const workspacePublicId = await getWorkspacePublicId();
-	const mailboxById = await fetchUnifiedMailboxContext(mailboxKind);
 
 	const mailboxThreadPromise = fetchUnifiedThreads(
 		mailboxKind,
-		Number(page),
+		currentPage,
 	).then(async (mailboxThreads) => {
 		const labelsByThreadId = await fetchMailboxThreadLabels(mailboxThreads);
 		return { mailboxThreads, labelsByThreadId };
 	});
 
-	// Full pagination is out of scope here, so the list only ever shows the
-	// first PAGE_SIZE threads. The count is RLS-scoped and mirrors the list
-	// query's WHERE clause, so it's safe to use purely to tell the user
-	// there's more, without fetching or rendering the rest.
-	const totalCount = await fetchUnifiedThreadCount(mailboxKind);
+	// The count is RLS-scoped and mirrors the list query's WHERE clause, so it
+	// gives the page count without fetching the rows. Both awaits happen
+	// together: serialising them would add the count's latency to the shell's
+	// first flush for no reason.
+	const [mailboxById, totalCount] = await Promise.all([
+		fetchUnifiedMailboxContext(mailboxKind),
+		fetchUnifiedThreadCount(mailboxKind),
+	]);
 
 	return (
 		<div className="flex flex-1 flex-col gap-4 p-4 mb-12">
@@ -65,9 +72,16 @@ export default async function Page({
 
 			{totalCount > PAGE_SIZE && (
 				<div className="text-center text-xs text-muted-foreground">
-					Showing the {PAGE_SIZE} most recent of {totalCount}
+					{totalCount} conversations across all accounts
 				</div>
 			)}
+
+			<UnifiedPagination
+				total={totalCount}
+				pageSize={PAGE_SIZE}
+				page={currentPage}
+				basePath={`/w/${workspacePublicId}/dashboard/mail/all/${mailboxKind}`}
+			/>
 		</div>
 	);
 }

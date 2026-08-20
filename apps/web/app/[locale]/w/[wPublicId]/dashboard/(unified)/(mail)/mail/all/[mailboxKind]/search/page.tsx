@@ -10,6 +10,8 @@ import {
 import { fetchLabels, fetchMailboxThreadLabels } from "@/lib/actions/labels";
 import { isUnifiedMailboxKind } from "@/lib/unified-mailbox";
 import WebmailListLabelSearch from "@/components/mailbox/default/webmail-list-label-search";
+import UnifiedPagination from "@/components/mailbox/default/unified-pagination";
+import { PAGE_SIZE } from "@common/mail-client";
 
 export default async function Page({
 	params,
@@ -101,6 +103,21 @@ export default async function Page({
 					labelsByThreadId={labelsByThreadId}
 					isUnified
 					viewKind={mailboxKind}
+				/>
+			)}
+
+			{q.trim() && (
+				<UnifiedPagination
+					total={totalThreads}
+					pageSize={PAGE_SIZE}
+					page={page}
+					basePath={`/w/${workspacePublicId}/dashboard/mail/all/${mailboxKind}/search`}
+					preservedParams={{
+						q,
+						has: has ? "1" : "",
+						unread: unread ? "1" : "",
+						starred: starred ? "1" : "",
+					}}
 				/>
 			)}
 		</div>

@@ -7,6 +7,8 @@ import {
 	resolveRowMailbox,
 	groupSelectionByMailbox,
 	sumUnreadByKind,
+	totalPages,
+	pageHref,
 	type MailboxContextMap,
 } from "./unified-mailbox";
 
@@ -108,4 +110,65 @@ test("sumUnreadByKind omits kinds with no counted mailbox", () => {
 	const mailboxes = [{ id: "mbx-a", kind: "inbox" }];
 
 	assert.deepEqual(sumUnreadByKind(mailboxes, new Map()), {});
+});
+
+test("totalPages rounds a partial last page up", () => {
+	assert.equal(totalPages(105, 50), 3);
+});
+
+test("totalPages does not add an empty page on an exact multiple", () => {
+	assert.equal(totalPages(100, 50), 2);
+});
+
+test("totalPages reports one page when everything fits on it", () => {
+	assert.equal(totalPages(10, 50), 1);
+});
+
+test("totalPages reports no pages for an empty result set", () => {
+	assert.equal(totalPages(0, 50), 0);
+});
+
+test("totalPages treats unusable inputs as no pages", () => {
+	assert.equal(totalPages(Number.NaN, 50), 0);
+	assert.equal(totalPages(-5, 50), 0);
+	assert.equal(totalPages(100, 0), 0);
+});
+
+test("pageHref omits the page param on the first page", () => {
+	assert.equal(pageHref("/w/ws1/dashboard/mail/all/inbox", {}, 1), "/w/ws1/dashboard/mail/all/inbox");
+});
+
+test("pageHref sets the page param beyond the first page", () => {
+	assert.equal(
+		pageHref("/w/ws1/dashboard/mail/all/inbox", {}, 3),
+		"/w/ws1/dashboard/mail/all/inbox?page=3",
+	);
+});
+
+test("pageHref keeps the params it was given alongside the page", () => {
+	assert.equal(
+		pageHref("/w/ws1/dashboard/mail/all/inbox/search", { q: "invoice", unread: "1" }, 2),
+		"/w/ws1/dashboard/mail/all/inbox/search?q=invoice&unread=1&page=2",
+	);
+});
+
+test("pageHref keeps the params it was given on the first page too", () => {
+	assert.equal(
+		pageHref("/w/ws1/dashboard/mail/all/inbox/search", { q: "invoice" }, 1),
+		"/w/ws1/dashboard/mail/all/inbox/search?q=invoice",
+	);
+});
+
+test("pageHref encodes params that need it", () => {
+	assert.equal(
+		pageHref("/w/ws1/dashboard/mail/all/inbox/search", { q: "a b&c" }, 1),
+		"/w/ws1/dashboard/mail/all/inbox/search?q=a+b%26c",
+	);
+});
+
+test("pageHref drops empty params rather than emitting a bare key", () => {
+	assert.equal(
+		pageHref("/w/ws1/dashboard/mail/all/inbox/search", { q: "x", has: "" }, 1),
+		"/w/ws1/dashboard/mail/all/inbox/search?q=x",
+	);
 });

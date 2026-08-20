@@ -78,3 +78,39 @@ export function sumUnreadByKind(
 
 	return totals;
 }
+
+/**
+ * Page count for a result set. Zero means "no pagination control": either
+ * there is nothing to show, or the caller passed something unusable. One page
+ * is a real answer — the control decides for itself that a single page is not
+ * worth rendering.
+ */
+export function totalPages(total: number, pageSize: number): number {
+	if (!Number.isFinite(total) || total <= 0) return 0;
+	if (!Number.isFinite(pageSize) || pageSize <= 0) return 0;
+
+	return Math.ceil(total / pageSize);
+}
+
+/**
+ * Builds the href for one page, preserving the params it is handed — the
+ * unified search needs its query and filters to survive a page change, while
+ * the unified list has none. Page 1 omits the param so the first page and the
+ * bare URL are the same address.
+ */
+export function pageHref(
+	basePath: string,
+	preserved: Readonly<Record<string, string>>,
+	page: number,
+): string {
+	const params = new URLSearchParams();
+
+	for (const [key, value] of Object.entries(preserved)) {
+		if (value) params.set(key, value);
+	}
+
+	if (page > 1) params.set("page", String(page));
+
+	const query = params.toString();
+	return query ? `${basePath}?${query}` : basePath;
+}
