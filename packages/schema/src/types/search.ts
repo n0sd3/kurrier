@@ -49,6 +49,8 @@ export type SearchResult = {
 export interface ThreadHit {
 	id: string;
 	threadId: string;
+	mailboxId: string;
+	identityPublicId: string;
 	subject: string | null;
 	snippet: string;
 	fromName: string | null;

@@ -471,32 +471,12 @@ export const deltaFetch = async ({
 
 };
 
-export const initSearch = async (
-	query: string,
-	workspacePublicId: string,
-	identityPublicId: string,
-	mailboxSlug: string,
-	hasAttachment: boolean,
-	onlyUnread: boolean,
-	starred: boolean,
+export const searchMessages = async (
+	filters: string[],
+	q: string,
 	page: number,
 ): Promise<SearchThreadsResponse> => {
-	const q = query.trim();
-	if (!q) {
-		return { items: [], totalThreads: 0, totalMessages: 0 };
-	}
-
 	const client = getTypeSenseClient();
-
-	const filters = [
-		`workspacePublicId:=${JSON.stringify(workspacePublicId)}`,
-		`identityPublicId:=${JSON.stringify(identityPublicId)}`,
-		`mailboxSlug:=${JSON.stringify(mailboxSlug)}`,
-	];
-
-	if (hasAttachment) filters.push("hasAttachment:=1");
-	if (onlyUnread) filters.push("unread:=1");
-	if (starred) filters.push("starred:=1");
 
 	const result = (await client.collections("messages").documents().search({
 		q,
@@ -521,6 +501,8 @@ export const initSearch = async (
 		items: sourceHits.map((d: any) => ({
 			id: d.id ?? "",
 			threadId: d.threadId ?? "",
+			mailboxId: d.mailboxId ?? "",
+			identityPublicId: d.identityPublicId ?? "",
 			subject: d.subject ?? null,
 			snippet: (d.snippet ?? d.text ?? "").slice(0, 200),
 			fromName: d.fromName ?? null,
@@ -536,6 +518,34 @@ export const initSearch = async (
 		totalThreads: result?.found ?? sourceHits.length,
 		totalMessages: result?.found_docs ?? sourceHits.length,
 	};
+};
+
+export const initSearch = async (
+	query: string,
+	workspacePublicId: string,
+	identityPublicId: string,
+	mailboxSlug: string,
+	hasAttachment: boolean,
+	onlyUnread: boolean,
+	starred: boolean,
+	page: number,
+): Promise<SearchThreadsResponse> => {
+	const q = query.trim();
+	if (!q) {
+		return { items: [], totalThreads: 0, totalMessages: 0 };
+	}
+
+	const filters = [
+		`workspacePublicId:=${JSON.stringify(workspacePublicId)}`,
+		`identityPublicId:=${JSON.stringify(identityPublicId)}`,
+		`mailboxSlug:=${JSON.stringify(mailboxSlug)}`,
+	];
+
+	if (hasAttachment) filters.push("hasAttachment:=1");
+	if (onlyUnread) filters.push("unread:=1");
+	if (starred) filters.push("starred:=1");
+
+	return searchMessages(filters, q, page);
 };
 
 

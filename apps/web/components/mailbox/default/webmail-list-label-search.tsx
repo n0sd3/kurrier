@@ -20,14 +20,16 @@ import type { MailboxContextMap } from "@/lib/unified-mailbox";
 type WebListProps = {
     mailboxThreads: FetchMailboxThreadsResult;
     publicConfig: PublicConfig;
-    activeMailbox: MailboxEntity;
-    identityPublicId: string;
+    activeMailbox?: MailboxEntity | null;
+    identityPublicId?: string;
     identityMailboxes: FetchIdentityMailboxListResult;
     globalLabels: FetchLabelsResult;
     labelsByThreadId: FetchMailboxThreadLabelsResult;
     workspacePublicId?: string;
     mailboxSync?: MailboxSyncEntity;
     mailboxById: MailboxContextMap;
+    emptyLabel?: string;
+    isUnified?: boolean;
 };
 
 export default function WebmailListLabelSearch({
@@ -41,6 +43,8 @@ export default function WebmailListLabelSearch({
                                         workspacePublicId,
                                         labelsByThreadId,
                                         mailboxById,
+                                        emptyLabel,
+                                        isUnified,
                                     }: WebListProps) {
     const params = useParams();
     const router = useRouter();
@@ -57,7 +61,9 @@ export default function WebmailListLabelSearch({
                 {mailboxThreads.length === 0 ? (
                     <div className="p-4 text-center text-base text-muted-foreground">
                         No messages in{" "}
-                        <span className={"lowercase"}>{activeMailbox.name}</span>
+                        <span className={"lowercase"}>
+                            {emptyLabel ?? activeMailbox?.name ?? "this mailbox"}
+                        </span>
                     </div>
                 ) : (
                     <div className="overflow-hidden rounded-xl border bg-background/50 z-[50]">
@@ -68,6 +74,7 @@ export default function WebmailListLabelSearch({
                             identityMailboxes={identityMailboxes}
                             activeMailbox={activeMailbox}
                             mailboxById={mailboxById}
+                            isUnified={isUnified}
                         />
 
                         <PendingThreadActionsProvider onSettled={() => router.refresh()}>
@@ -82,6 +89,7 @@ export default function WebmailListLabelSearch({
                                     mailboxById={mailboxById}
                                     globalLabels={globalLabels}
                                     labelsByThreadId={labelsByThreadId}
+                                    showAccount={isUnified}
                                 />
                             ))}
                         </ul>

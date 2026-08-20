@@ -9,6 +9,8 @@ import type {
 	MailboxContextMap,
 	UnifiedMailboxKind,
 } from "@/lib/unified-mailbox";
+import type { SearchThreadsResponse } from "@schema";
+import { searchMessages } from "@/lib/actions/mailbox";
 
 // Mirrors the ordering fetchMailboxThreads uses, so a unified list and a
 // per-account list agree on what "most recent" means.
@@ -82,6 +84,71 @@ export const fetchUnifiedMailboxContext = cache(
 		return mailboxById;
 	},
 );
+
+export const initUnifiedSearch = async (
+	query: string,
+	workspacePublicId: string,
+	kind: UnifiedMailboxKind,
+	hasAttachment: boolean,
+	onlyUnread: boolean,
+	starred: boolean,
+	page: number,
+): Promise<SearchThreadsResponse> => {
+	const q = query.trim();
+	if (!q) return { items: [], totalThreads: 0, totalMessages: 0 };
+
+	// The indexed document has no "kind" field, only a provider-derived slug.
+	// Resolve the concrete mailbox ids for this kind and filter on those, so
+	// the search covers exactly the folders the unified list shows.
+	const mailboxById = await fetchUnifiedMailboxContext(kind);
+	const mailboxIds = Object.keys(mailboxById);
+	if (!mailboxIds.length) return { items: [], totalThreads: 0, totalMessages: 0 };
+
+	const filters = [
+		`workspacePublicId:=${JSON.stringify(workspacePublicId)}`,
+		`mailboxId:=[${mailboxIds.map((id) => JSON.stringify(id)).join(",")}]`,
+	];
+
+	if (hasAttachment) filters.push("hasAttachment:=1");
+	if (onlyUnread) filters.push("unread:=1");
+	if (starred) filters.push("starred:=1");
+
+	return searchMessages(filters, q, page);
+};
+
+export const fetchThreadsByMailboxPairs = async (
+	pairs: Array<{ threadId: string; mailboxId: string }>,
+) => {
+	if (!pairs.length) return [];
+
+	const rls = await rlsClient();
+
+	const rows = await rls((tx) =>
+		tx
+			.select()
+			.from(mailboxThreads)
+			.where(
+				or(
+					...pairs.map((p) =>
+						and(
+							eq(mailboxThreads.threadId, p.threadId),
+							eq(mailboxThreads.mailboxId, p.mailboxId),
+						),
+					),
+				),
+			),
+	);
+
+	// Preserve the relevance order the search engine returned.
+	const rank = new Map(pairs.map((p, i) => [`${p.threadId}:${p.mailboxId}`, i]));
+	rows.sort(
+		(a, b) =>
+			(rank.get(`${a.threadId}:${a.mailboxId}`) ?? Number.MAX_SAFE_INTEGER) -
+			(rank.get(`${b.threadId}:${b.mailboxId}`) ?? Number.MAX_SAFE_INTEGER),
+	);
+
+	return rows;
+};
 
 export const fetchUnifiedThreadCount = cache(
 	async (kind: UnifiedMailboxKind) => {
