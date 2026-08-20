@@ -105,8 +105,15 @@ index migration only if the plan is bad. Do not add one speculatively.
 ### 2. Unified search
 
 `initSearch` ([`mailbox.ts:474`](../../../apps/web/lib/actions/mailbox.ts)) builds
-`filter_by` from three terms. The unified variant keeps `workspacePublicId` — the
-security boundary — and drops `identityPublicId` and `mailboxSlug`.
+`filter_by` from `workspacePublicId`, `identityPublicId` and `mailboxSlug`.
+
+The indexed document has no `kind` field — only `mailboxSlug`
+([`search.ts:5-20`](../../../packages/schema/src/types/search.ts)). Dropping the slug
+filter would therefore widen the search to *every* folder, not to the chosen kind. The
+unified variant instead keeps `workspacePublicId` — the security boundary — and replaces
+the other two with an explicit id set: `mailboxId:=[...]`, built from the mailboxes of
+that kind. `mailboxId` is declared `facet: true` in the collection schema, so it is
+filterable without a reindex.
 
 Two coupled changes carry the risk here:
 
