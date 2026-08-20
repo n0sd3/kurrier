@@ -201,6 +201,7 @@ export default function IdentityMailboxesList({
 		identityPublicId?: string;
 		mailboxSlug?: string;
 		threadId?: string;
+		mailboxKind?: string;
 	};
 
 	useEffect(() => {
@@ -354,7 +355,7 @@ export default function IdentityMailboxesList({
 		() =>
 			sumUnreadByKind(
 				identityMailboxes.flatMap(({ mailboxes }) =>
-					mailboxes.map((m) => ({ id: m.id, kind: m.kind as string })),
+					mailboxes.map((m) => ({ id: m.id, kind: m.kind })),
 				),
 				unreadCounts,
 			),
@@ -372,7 +373,7 @@ export default function IdentityMailboxesList({
 					{UNIFIED_MAILBOX_KINDS.map((kind) => {
 						const Icon = ICON[kind] ?? Folder;
 						const href = `/w/${workspacePublicId}/dashboard/mail/all/${kind}`;
-						const isActive = pathname.endsWith(href);
+						const isActive = params.mailboxKind === kind;
 						const unread = unreadByKind[kind] ?? 0;
 
 						return (
