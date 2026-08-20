@@ -83,15 +83,26 @@ function MailListHeader({
 	const clearSelection = () =>
 		setState((prev) => ({ ...(prev ?? {}), selectedThreadIds: new Set() }));
 
+	// Drop only the given ids from the selection, leaving any others (e.g. ids
+	// belonging to a group whose action failed) selected for a retry.
+	const clearThreadIds = (ids: ReadonlySet<string>) =>
+		setState((prev) => {
+			const remaining = new Set(prev?.selectedThreadIds ?? []);
+			ids.forEach((id) => remaining.delete(id));
+			return { ...(prev ?? {}), selectedThreadIds: remaining };
+		});
+
 	// A selection can span accounts, and every action takes a single mailboxId.
 	// Fan out one call per mailbox, each carrying that account's own sync flag.
+	// A failure in one account's group must not swallow the others — settle
+	// every group independently and report back which threads actually moved.
 	const forEachSelectedGroup = async (
 		run: (group: { mailboxId: string; threadIds: string[]; imap: boolean }) => Promise<unknown>,
 	) => {
 		const selected = state?.selectedThreadIds ?? new Set<string>();
 		const groups = groupSelectionByMailbox(mailboxThreads, selected);
 
-		await Promise.all(
+		const results = await Promise.allSettled(
 			groups.map((group) =>
 				run({
 					mailboxId: group.mailboxId,
@@ -100,6 +111,18 @@ function MailListHeader({
 				}),
 			),
 		);
+
+		const succeededThreadIds = new Set<string>();
+		let failedGroups = 0;
+		results.forEach((result, i) => {
+			if (result.status === "fulfilled") {
+				groups[i].threadIds.forEach((id) => succeededThreadIds.add(id));
+			} else {
+				failedGroups += 1;
+			}
+		});
+
+		return { succeededThreadIds, failedGroups, totalGroups: groups.length };
 	};
 
 	// Threads can leave the list without going through this header — a swipe, a
@@ -169,11 +192,20 @@ function MailListHeader({
 	const markRead = async () => {
 		try {
 			setMarkingRead(true);
-			await forEachSelectedGroup(({ mailboxId, threadIds, imap }) =>
-				markAsRead(threadIds, mailboxId, imap, true, pathName),
+			const { succeededThreadIds, failedGroups, totalGroups } = await forEachSelectedGroup(
+				({ mailboxId, threadIds, imap }) =>
+					markAsRead(threadIds, mailboxId, imap, true, pathName),
 			);
-			clearSelection();
+			clearThreadIds(succeededThreadIds);
 			router.refresh();
+			if (failedGroups > 0) {
+				toast.error(
+					failedGroups === totalGroups
+						? "Failed to mark as read"
+						: `Marked as read, but ${failedGroups} account${failedGroups > 1 ? "s" : ""} failed`,
+					{ position: "bottom-left" },
+				);
+			}
 		} catch {
 			toast.error("Failed to mark as read", { position: "bottom-left" });
 		} finally {
@@ -194,12 +226,22 @@ function MailListHeader({
 		);
 		try {
 			setBulkDeleting(true);
-			await forEachSelectedGroup(({ mailboxId, threadIds, imap }) =>
-				moveToTrash(threadIds, mailboxId, imap, true, undefined, pathName),
+			const { succeededThreadIds, failedGroups, totalGroups } = await forEachSelectedGroup(
+				({ mailboxId, threadIds, imap }) =>
+					moveToTrash(threadIds, mailboxId, imap, true, undefined, pathName),
 			);
-			clearSelection();
+			clearThreadIds(succeededThreadIds);
 			router.refresh();
-			toast.success("Messages moved to Trash", { id: toastId, position: "bottom-left" });
+			if (failedGroups === 0) {
+				toast.success("Messages moved to Trash", { id: toastId, position: "bottom-left" });
+			} else if (failedGroups === totalGroups) {
+				toast.error("Failed to move messages to Trash", { id: toastId, position: "bottom-left" });
+			} else {
+				toast.error(
+					`Moved messages to Trash, but ${failedGroups} account${failedGroups > 1 ? "s" : ""} failed`,
+					{ id: toastId, position: "bottom-left" },
+				);
+			}
 		} catch {
 			toast.error("Failed to move messages to Trash", { id: toastId, position: "bottom-left" });
 		} finally {
@@ -215,12 +257,22 @@ function MailListHeader({
 		);
 		try {
 			setBulkDeleting(true);
-			await forEachSelectedGroup(({ mailboxId, threadIds, imap }) =>
-				deleteForever(threadIds, mailboxId, imap, true, undefined, pathName),
+			const { succeededThreadIds, failedGroups, totalGroups } = await forEachSelectedGroup(
+				({ mailboxId, threadIds, imap }) =>
+					deleteForever(threadIds, mailboxId, imap, true, undefined, pathName),
 			);
-			clearSelection();
+			clearThreadIds(succeededThreadIds);
 			router.refresh();
-			toast.success("Thread deleted forever", { id: toastId, position: "bottom-left" });
+			if (failedGroups === 0) {
+				toast.success("Thread deleted forever", { id: toastId, position: "bottom-left" });
+			} else if (failedGroups === totalGroups) {
+				toast.error("Failed to delete thread", { id: toastId, position: "bottom-left" });
+			} else {
+				toast.error(
+					`Deleted forever, but ${failedGroups} account${failedGroups > 1 ? "s" : ""} failed`,
+					{ id: toastId, position: "bottom-left" },
+				);
+			}
 		} catch {
 			toast.error("Failed to delete thread", { id: toastId, position: "bottom-left" });
 		} finally {
@@ -316,12 +368,12 @@ function MailListHeader({
 								: "opacity-0 hidden pointer-events-none",
 						)}
 					>
-						{!isUnified && (
+						{!isUnified && activeMailbox && (
 							// MoveToFolder targets a single account's folder list, so it only
-							// renders in the per-account view, where activeMailbox is always set.
+							// renders in the per-account view, where activeMailbox is set.
 							<MoveToFolder
 								identityMailboxes={identityMailboxes}
-								activeMailbox={activeMailbox as MailboxEntity}
+								activeMailbox={activeMailbox}
 							/>
 						)}
 						<button
