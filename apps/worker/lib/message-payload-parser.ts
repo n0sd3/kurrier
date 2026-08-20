@@ -34,6 +34,7 @@ type WebhookJob = { message: any; rawEmail: string };
 type PushJob = {
 	ownerId: string;
 	mailboxId: string;
+	messageId: string;
 	threadId: string;
 	subject: string | null;
 	from: any;
@@ -138,6 +139,7 @@ async function flushBatches() {
 					ownerId,
 					messages: jobsForOwner.map((j) => ({
 						mailboxId: j.mailboxId,
+						messageId: j.messageId,
 						threadId: j.threadId,
 						subject: j.subject,
 						from: j.from,
@@ -479,6 +481,7 @@ export async function parseAndStoreEmail(
 		pushBuffer.push({
 			ownerId: message.ownerId,
 			mailboxId: message.mailboxId,
+			messageId: message.id,
 			threadId: message.threadId,
 			subject: message.subject,
 			from: message.from,

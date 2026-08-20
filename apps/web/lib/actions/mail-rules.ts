@@ -6,6 +6,7 @@ import { handleAction, mailRulesActionsList, mailRulesFieldsList, mailRulesOpsLi
 import {asc, eq, ne} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { decode } from "decode-formdata";
+import { getRedis } from "@/lib/actions/get-redis";
 
 export async function fetchMailRules(identityId: string) {
     const rls = await rlsClient();
@@ -252,6 +253,132 @@ export async function createRule(_prev: any, formData: FormData) {
         return {
             success: true,
             ruleId: res.ruleId,
+        };
+    });
+}
+
+export async function updateMailRule(payload: {
+    ruleId: string;
+    name: string;
+    priority: number;
+    enabled: boolean;
+    match: MatchPayload;
+    actions: RuleAction[];
+}) {
+    const rls = await rlsClient();
+
+    return rls(async (tx) => {
+        try {
+            const [rule] = await tx
+                .update(mailRules)
+                .set({
+                    name: payload.name,
+                    priority: payload.priority,
+                    enabled: payload.enabled,
+                    match: payload.match,
+                    updatedAt: new Date(),
+                })
+                .where(eq(mailRules.id, payload.ruleId))
+                .returning({ id: mailRules.id });
+
+            if (!rule) throw new Error("Rule not found");
+
+            // The action rows carry a unique (rule_id, order) index, so replacing
+            // the whole set is simpler than diffing it.
+            await tx.delete(mailRuleActions).where(eq(mailRuleActions.ruleId, rule.id));
+
+            if (payload.actions.length) {
+                await tx.insert(mailRuleActions).values(
+                    payload.actions.map((a) => ({
+                        ruleId: rule.id,
+                        actionType: a.actionType,
+                        order: a.order,
+                        params: a.params,
+                    })),
+                );
+            }
+
+            return { ok: true as const, ruleId: rule.id };
+        } catch (e: any) {
+            if (e?.code === "23505") {
+                return {
+                    ok: false as const,
+                    error: "A rule with this name already exists for this identity.",
+                    errors: { name: ["Rule name must be unique per identity."] },
+                };
+            }
+            throw e;
+        }
+    });
+}
+
+export async function updateRule(_prev: any, formData: FormData) {
+    return handleAction(async () => {
+        const ruleId = asString(formData.get("ruleId")).trim();
+        if (!ruleId) return { success: false, error: "Missing ruleId" };
+
+        const payload = await buildRulePayloadFromFormData(formData);
+        if (payload._errors) {
+            const errors = payload._errors ?? {};
+            const firstError =
+                Object.values(errors)[0]?.[0] ?? "Validation errors occurred.";
+
+            return {
+                success: false,
+                errors: payload._errors,
+                error: firstError,
+            };
+        }
+
+        const res = await updateMailRule({ ...payload, ruleId });
+
+        if (!res.ok) {
+            return {
+                success: false,
+                error: res.error,
+                errors: res.errors,
+            };
+        }
+
+        revalidatePath(asString(formData.get("pathname")) || "/dashboard/mail");
+
+        return {
+            success: true,
+            ruleId: res.ruleId,
+        };
+    });
+}
+
+// Rules only ever see mail as it arrives, so anything already in the mailbox
+// when a rule is created stays put. This queues a retroactive pass over the
+// stored messages of the rule's identity (apps/worker/lib/rules/run-rule-on-existing.ts).
+export async function runRuleNow(_prev: any, formData: FormData) {
+    return handleAction(async () => {
+        const ruleId = asString(formData.get("ruleId")).trim();
+        if (!ruleId) return { success: false, error: "Missing ruleId" };
+
+        const rls = await rlsClient();
+        const [rule] = await rls((tx) =>
+            tx.select().from(mailRules).where(eq(mailRules.id, ruleId)),
+        );
+
+        if (!rule) return { success: false, error: "Rule not found" };
+
+        const { commonWorkerQueue } = await getRedis();
+        await commonWorkerQueue.add(
+            "rules:run-existing",
+            { ruleId: rule.id },
+            {
+                jobId: `rules-run-existing-${rule.id}`,
+                removeOnComplete: true,
+                removeOnFail: false,
+                attempts: 1,
+            },
+        );
+
+        return {
+            success: true,
+            message: `Running "${rule.name}" over existing messages.`,
         };
     });
 }

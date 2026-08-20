@@ -4,6 +4,7 @@ import { MailRuleMatchV1, mailRulesFieldsList, mailRulesOpsList } from "@schema"
 import { markAsRead } from "./rule-items/mark-read";
 import { toggleStar } from "./rule-items/mark-flag";
 import { moveToTrash } from "./rule-items/move-to-trash";
+import { markPushSuppressed } from "./push-suppression";
 
 type AddressValue = { address?: string | null; name?: string | null };
 type AddressObjectLike =
@@ -194,9 +195,68 @@ function evalCondition(message: any, c: MatchCondition): boolean {
     return false;
 }
 
-function evalMatch(message: any, match: MailRuleMatchV1): boolean {
+export function evalMatch(message: any, match: MailRuleMatchV1): boolean {
     const results = match.conditions.map((c) => evalCondition(message, c));
     return match.logic === "any" ? results.some(Boolean) : results.every(Boolean);
+}
+
+// Actions that mean "don't bother me with this one". The push job skips any
+// message a matching rule silenced — see ./push-suppression.
+const SILENCING_ACTIONS = new Set<string>(["trash", "mark_read"]);
+
+type RuleActionRow = typeof mailRuleActions.$inferSelect;
+
+export async function applyRuleActions(
+    actions: RuleActionRow[],
+    // Rows come straight off the drizzle selects, which this project types
+    // loosely; only .id / .ownerId / .smtpAccountId are read below.
+    ctx: {
+        message: any;
+        thread: any;
+        mailbox: any;
+        identity: any;
+    },
+) {
+    const { message, thread, mailbox, identity } = ctx;
+    const useSmtp = Boolean(identity.smtpAccountId);
+
+    if (actions.some((a) => SILENCING_ACTIONS.has(a.actionType))) {
+        await markPushSuppressed(message.id);
+    }
+
+    for (const act of actions) {
+        switch (act.actionType) {
+            case "mark_read": {
+                await markAsRead(thread.id, mailbox.id, useSmtp);
+                break;
+            }
+            case "flag": {
+                await toggleStar(thread.id, mailbox.id, true, useSmtp);
+                break;
+            }
+            case "trash": {
+                await moveToTrash(thread.id, mailbox.id, useSmtp, message.id);
+                break;
+            }
+            case "add_label": {
+                const labelId = (act.params as any)?.labelId as string | undefined;
+                if (!labelId) break;
+                await db
+                    .insert(mailboxThreadLabels)
+                    .values({
+                        threadId: thread.id,
+                        mailboxId: mailbox.id,
+                        ownerId: mailbox.ownerId,
+                        labelId,
+                    })
+                    .onConflictDoNothing();
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+    }
 }
 
 export const processRules = async ({ messageId }: { messageId: string }) => {
@@ -245,38 +305,12 @@ export const processRules = async ({ messageId }: { messageId: string }) => {
         const ok = evalMatch(message, match);
         if (!ok) continue;
 
-        const ruleActions = actionsByRuleId.get(rule.id) ?? [];
-
-        for (const act of ruleActions) {
-            switch (act.actionType) {
-                case "mark_read": {
-                    await markAsRead(thread.id, mailbox.id, identity.smtpAccountId);
-                    break;
-                }
-                case "flag": {
-                    await toggleStar(thread.id, mailbox.id, true, identity.smtpAccountId);
-                    break;
-                }
-                case "trash": {
-                    await moveToTrash(thread.id, mailbox.id, identity.smtpAccountId, message.id);
-                    break;
-                }
-                case "add_label": {
-                    const labelId = (act.params as any)?.labelId as string | undefined;
-                    if (!labelId) break;
-                    await db.insert(mailboxThreadLabels).values({
-                        threadId: thread.id,
-                        mailboxId: mailbox.id,
-                        ownerId: mailbox.ownerId,
-                        labelId,
-                    })
-                    break;
-                }
-                default: {
-                    break;
-                }
-            }
-        }
+        await applyRuleActions(actionsByRuleId.get(rule.id) ?? [], {
+            message,
+            thread,
+            mailbox,
+            identity,
+        });
 
         if (rule.stopProcessing) break;
     }

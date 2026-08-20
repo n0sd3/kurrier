@@ -41,7 +41,7 @@ async function Page({ params }: { params: { identityPublicId: string } }) {
             title={"Rules"}
             description={"Create filters to automatically process incoming mail."}
         >
-            <MailRulesList rules={rules} />
+            <MailRulesList rules={rules} appLabels={appLabels} />
             {rules.length > 0 && <Divider my={"xl"} variant={"dashed"} label={<span className={"text-sm"}>Add New Label</span>} labelPosition={"left"} />}
             <CreateMailRuleForm identityId={identity.id} action={createRule} appLabels={appLabels} />
 

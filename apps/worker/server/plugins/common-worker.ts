@@ -7,6 +7,7 @@ import { kvDel, kvGet, kvSet } from "@common";
 import { processWebhook } from "../../lib/webhooks/message.received";
 import { and, isNull, lte } from "drizzle-orm";
 import { processRules } from "../../lib/rules/rules-processor";
+import { runRuleOnExistingMessages } from "../../lib/rules/run-rule-on-existing";
 import { sendPushNotifications } from "../../lib/push/send-push-notifications";
 import { runAccountHealthTick } from "../../lib/accounts/run-account-health-tick";
 
@@ -71,6 +72,13 @@ export default defineNitroPlugin(async (nitroApp) => {
 						messageId: string;
 					};
 					await processRules({ messageId });
+					return { success: true };
+				}
+				case "rules:run-existing": {
+					const { ruleId } = job.data as {
+						ruleId: string;
+					};
+					await runRuleOnExistingMessages({ ruleId });
 					return { success: true };
 				}
 				case "mail:snooze-tick": {

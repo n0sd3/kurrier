@@ -7,6 +7,10 @@ import type { BaseFormProps } from "@schema";
 import { ReusableFormItems } from "@/components/common/reusable-form-items";
 import { LabelEntity } from "@db";
 import {FetchAppLabelsResult} from "@/lib/actions/mail-rules";
+import {
+    emptyRuleFormValues,
+    type RuleFormValues,
+} from "@/components/mailbox/settings/rules/rule-form-values";
 
 type BoolSwitchProps = {
     name: string;
@@ -108,8 +112,29 @@ const SIZE_UNIT_OPTIONS = [
     { value: "MB", label: "MB" },
 ] as const;
 
-export default function CreateRuleFormGmailV1({ action, identityId, appLabels, initialName = "New rule"}: { action: any; identityId: string; appLabels: FetchAppLabelsResult, initialName?: string; }) {
-    const [applyLabel, setApplyLabel] = useState(false);
+export default function CreateRuleFormGmailV1({
+    action,
+    identityId,
+    appLabels,
+    initialName = "New rule",
+    values = emptyRuleFormValues,
+    ruleId,
+    pathname,
+    submitLabel = "Create rule",
+}: {
+    action: any;
+    identityId: string;
+    appLabels: FetchAppLabelsResult;
+    initialName?: string;
+    // Editing reuses this form: `values` seeds every field from an existing
+    // rule, and `ruleId` / `pathname` ride along as hidden inputs so the update
+    // action knows what to write and which page to revalidate.
+    values?: RuleFormValues;
+    ruleId?: string;
+    pathname?: string;
+    submitLabel?: string;
+}) {
+    const [applyLabel, setApplyLabel] = useState(values.applyLabel);
 
     const criteriaFields: BaseFormProps["fields"] = [
         {
@@ -117,7 +142,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             label: "From",
             wrapperClasses: "col-span-12 md:col-span-6",
             props: {
-                defaultValue: "",
+                defaultValue: values.from,
                 placeholder: "e.g. newsletter@company.com",
                 autoComplete: "off",
             },
@@ -127,7 +152,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             label: "To",
             wrapperClasses: "col-span-12 md:col-span-6",
             props: {
-                defaultValue: "",
+                defaultValue: values.to,
                 placeholder: "e.g. me@domain.com",
                 autoComplete: "off",
             },
@@ -137,7 +162,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             label: "Subject",
             wrapperClasses: "col-span-12 md:col-span-6",
             props: {
-                defaultValue: "",
+                defaultValue: values.subject,
                 placeholder: "e.g. invoice",
                 autoComplete: "off",
             },
@@ -147,7 +172,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             label: "Has the words",
             wrapperClasses: "col-span-12 md:col-span-6",
             props: {
-                defaultValue: "",
+                defaultValue: values.hasWords,
                 placeholder: "e.g. unsubscribe",
                 autoComplete: "off",
             },
@@ -157,7 +182,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             label: "Doesn't have",
             wrapperClasses: "col-span-12 md:col-span-6",
             props: {
-                defaultValue: "",
+                defaultValue: values.doesntHave,
                 placeholder: "e.g. urgent",
                 autoComplete: "off",
             },
@@ -169,7 +194,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             wrapperClasses:
                 "col-span-12 md:col-span-6 flex items-center gap-2 justify-end-safe flex-row flex-row-reverse mt-3",
             props: {
-                defaultChecked: false,
+                defaultChecked: values.hasAttachment,
                 label: <div className="text-sm -mt-1">Has attachment</div>,
             },
         },
@@ -183,7 +208,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             wrapperClasses: "col-span-12 md:col-span-4",
             options: SIZE_OP_OPTIONS as any,
             props: {
-                defaultValue: "gt",
+                defaultValue: values.sizeOp,
             },
         },
         {
@@ -193,7 +218,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             component: NumberInput,
             wrapperClasses: "col-span-12 md:col-span-4",
             props: {
-                defaultValue: 0,
+                defaultValue: values.sizeValue,
                 min: 0,
                 step: 1,
             },
@@ -205,7 +230,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             wrapperClasses: "col-span-12 md:col-span-4",
             options: SIZE_UNIT_OPTIONS as any,
             props: {
-                defaultValue: "MB",
+                defaultValue: values.sizeUnit,
             },
         },
     ];
@@ -219,7 +244,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             wrapperClasses:
                 "col-span-12 md:col-span-6 rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2",
             props: {
-                defaultChecked: false,
+                defaultChecked: values.markRead,
                 label: <div className="text-sm">Mark as read</div>,
             },
         },
@@ -231,7 +256,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             wrapperClasses:
                 "col-span-12 md:col-span-6 rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2",
             props: {
-                defaultChecked: false,
+                defaultChecked: values.flag,
                 label: <div className="text-sm">Star it (Flag)</div>,
             },
         },
@@ -243,7 +268,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             wrapperClasses:
                 "col-span-12 md:col-span-6 rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2",
             props: {
-                defaultChecked: false,
+                defaultChecked: values.trash,
                 label: <div className="text-sm">Delete it (Trash)</div>,
             },
         },
@@ -274,7 +299,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
                             label: label.name,
                         })),
                         allowDeselect: false,
-                        defaultValue: appLabels[0]?.id || "",
+                        defaultValue: values.labelId || appLabels[0]?.id || "",
                         required: true,
                     },
                 }
@@ -294,6 +319,20 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             wrapperClasses: "hidden",
             props: { type: "hidden", value: identityId, readOnly: true },
         },
+        ...(ruleId
+            ? ([
+                {
+                    name: "ruleId",
+                    wrapperClasses: "hidden",
+                    props: { type: "hidden", value: ruleId, readOnly: true },
+                },
+                {
+                    name: "pathname",
+                    wrapperClasses: "hidden",
+                    props: { type: "hidden", value: pathname ?? "", readOnly: true },
+                },
+            ] as BaseFormProps["fields"])
+            : []),
         {
             name: "name",
             label: "Rule name",
@@ -301,7 +340,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             props: {
                 required: true,
                 placeholder: "e.g. Newsletters",
-                defaultValue: initialName,
+                defaultValue: ruleId ? values.name : initialName,
                 autoComplete: "off",
             },
         },
@@ -312,7 +351,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             component: NumberInput,
             wrapperClasses: "col-span-12 md:col-span-3",
             props: {
-                defaultValue: 100,
+                defaultValue: values.priority,
                 min: 0,
                 step: 10,
             },
@@ -324,7 +363,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             component: BoolSwitch,
             wrapperClasses: "col-span-12 md:col-span-2 flex items-end justify-end gap-2 flex-col",
             props: {
-                defaultChecked: true,
+                defaultChecked: values.enabled,
                 size: "sm",
             },
         },
@@ -373,7 +412,7 @@ export default function CreateRuleFormGmailV1({ action, identityId, appLabels, i
             action={action}
             fields={fields}
             submitButtonProps={{
-                submitLabel: "Create rule",
+                submitLabel: submitLabel,
                 wrapperClasses: "mt-4 flex justify-start py-4",
                 fullWidth: false,
             }}
