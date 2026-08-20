@@ -16,16 +16,20 @@ import { PendingThreadActionsProvider } from "@/hooks/use-pending-thread-actions
 import { useParams, useRouter } from "next/navigation";
 import {use} from "react";
 import type { MailboxContextMap } from "@/lib/unified-mailbox";
+import type { MailboxKind } from "@schema";
 
 type WebListProps = {
 	mailboxThreadPromise: Promise<{ mailboxThreads: FetchMailboxThreadsResult, labelsByThreadId: FetchMailboxThreadLabelsResult }>;
 	publicConfig: PublicConfig;
-	identityPublicId: string;
+	identityPublicId?: string;
+	mailboxById: MailboxContextMap;
 	identityMailboxesPromise: Promise<FetchIdentityMailboxListResult>;
-	fetchMailboxPromise: Promise<FetchMailboxResult>;
+	fetchMailboxPromise?: Promise<FetchMailboxResult>;
 	globalLabelsPromise: Promise<FetchLabelsResult>;
 	workspacePublicId?: string;
-	mailboxById: MailboxContextMap;
+	emptyLabel?: string;
+	isUnified?: boolean;
+	viewKind?: MailboxKind;
 };
 
 export default function WebmailList({
@@ -36,11 +40,17 @@ export default function WebmailList({
 	globalLabelsPromise,
 	workspacePublicId,
 	fetchMailboxPromise,
-	mailboxById
+	mailboxById,
+	emptyLabel,
+	isUnified,
+	viewKind,
 }: WebListProps) {
 	const {labelsByThreadId, mailboxThreads} = use(mailboxThreadPromise)
 	const globalLabels = use(globalLabelsPromise)
-	const {mailboxSync, activeMailbox, identity} = use(fetchMailboxPromise)
+	const mailboxResult = fetchMailboxPromise ? use(fetchMailboxPromise) : null;
+	const activeMailbox = mailboxResult?.activeMailbox ?? null;
+	const mailboxSync = mailboxResult?.mailboxSync ?? null;
+	const identity = mailboxResult?.identity;
 	const identityMailboxes = use(identityMailboxesPromise)
 	const params = useParams();
 	const router = useRouter();
@@ -50,14 +60,14 @@ export default function WebmailList({
 			<DynamicContextProvider
 				initialState={{
 					selectedThreadIds: new Set(),
-					activeMailbox,
-					identityPublicId,
 				}}
 			>
 				{mailboxThreads.length === 0 ? (
 					<div className="p-4 text-center text-base text-muted-foreground">
 						No messages in{" "}
-						<span className={"lowercase"}>{activeMailbox.name}</span>
+						<span className={"lowercase"}>
+							{emptyLabel ?? activeMailbox?.name ?? "this mailbox"}
+						</span>
 					</div>
 				) : (
 					<div className="overflow-hidden rounded-xl border bg-background/50 z-[50]">
@@ -69,6 +79,8 @@ export default function WebmailList({
 							activeMailbox={activeMailbox}
 							identity={identity}
 							mailboxById={mailboxById}
+							isUnified={isUnified}
+							viewKind={viewKind}
 						/>
 
 						<PendingThreadActionsProvider onSettled={() => router.refresh()}>
@@ -83,6 +95,7 @@ export default function WebmailList({
 									mailboxById={mailboxById}
 									globalLabels={globalLabels}
 									labelsByThreadId={labelsByThreadId}
+									showAccount={isUnified}
 								/>
 							))}
 						</ul>

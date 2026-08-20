@@ -33,6 +33,7 @@ import { clsx } from "clsx";
 import MoveToFolder from "@/components/mailbox/default/move-to-folder";
 import { usePathname, useRouter } from "next/navigation";
 import { groupSelectionByMailbox, type MailboxContextMap } from "@/lib/unified-mailbox";
+import type { MailboxKind } from "@schema";
 
 function MailListHeader({
 	mailboxThreads,
@@ -43,6 +44,7 @@ function MailListHeader({
 	identity,
 	mailboxById,
 	isUnified = false,
+	viewKind: viewKindProp,
 }: {
 	mailboxThreads: FetchMailboxThreadsResult;
 	publicConfig: PublicConfig;
@@ -52,6 +54,7 @@ function MailListHeader({
 	identity?: IdentityEntity;
 	mailboxById: MailboxContextMap;
 	isUnified?: boolean;
+	viewKind?: MailboxKind;
 }) {
 	const isGmailIdentity = !!(identity?.metaData as any)?.gmail?.googleAccountId;
 	const { state, setState } = useDynamicContext<{
@@ -63,9 +66,13 @@ function MailListHeader({
 	const identityIdRef = useRef<string | undefined>(activeMailbox?.identityId);
 	const mailboxIdRef = useRef<string | undefined>(activeMailbox?.id);
 
-	// In a unified view every row shares the same kind (the route picks one),
-	// so the first resolved row is representative.
+	// The route already knows which kind it's showing when it passes viewKind
+	// explicitly (the unified view does this to avoid guessing). Otherwise fall
+	// back to the active mailbox, then the first resolved row (every row shares
+	// the same kind in a unified view, so the first is representative), then
+	// "inbox".
 	const viewKind =
+		viewKindProp ??
 		activeMailbox?.kind ??
 		mailboxById[mailboxThreads[0]?.mailboxId ?? ""]?.mailbox.kind ??
 		"inbox";

@@ -22,6 +22,7 @@ type Props = {
 	globalLabels: FetchLabelsResult;
 	labelsByThreadId: FetchMailboxThreadLabelsResult;
 	workspacePublicId?: string;
+	showAccount?: boolean;
 };
 import { Temporal } from "@js-temporal/polyfill";
 import { useDynamicContext } from "@/hooks/use-dynamic-context";
@@ -45,7 +46,8 @@ export default function WebmailListItem({
 	mailboxById,
 	globalLabels,
 	labelsByThreadId,
-	workspacePublicId
+	workspacePublicId,
+	showAccount = false,
 }: Props) {
 	function formatDateLabel(input?: string | number | Date) {
 		const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -328,6 +330,14 @@ export default function WebmailListItem({
 				>
 					<div className="flex min-w-0 items-baseline gap-2">
 						<span className="min-w-0 flex-1 truncate">{allNames}</span>
+						{showAccount && (
+							<span
+								className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground"
+								title={rowContext?.identity.value ?? ""}
+							>
+								{rowContext?.identity.value}
+							</span>
+						)}
 						{mailboxThreadItem.messageCount > 1 && (
 							<span className="shrink-0 text-xs text-muted-foreground font-normal">
 								{mailboxThreadItem.messageCount}
