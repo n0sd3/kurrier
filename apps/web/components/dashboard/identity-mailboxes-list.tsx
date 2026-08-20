@@ -33,6 +33,7 @@ import AddNewFolder from "@/components/mailbox/default/add-new-folder";
 import { Menu, Select } from "@mantine/core";
 import DeleteMailboxFolder from "@/components/mailbox/default/delete-folder";
 import { IconMailFast } from "@tabler/icons-react";
+import { UNIFIED_MAILBOX_KINDS, sumUnreadByKind } from "@/lib/unified-mailbox";
 
 const ORDER: MailboxKind[] = [
 	"inbox",
@@ -349,8 +350,54 @@ export default function IdentityMailboxesList({
 		({ mailboxes }) => mailboxes.length > 0,
 	);
 
+	const unreadByKind = React.useMemo(
+		() =>
+			sumUnreadByKind(
+				identityMailboxes.flatMap(({ mailboxes }) =>
+					mailboxes.map((m) => ({ id: m.id, kind: m.kind as string })),
+				),
+				unreadCounts,
+			),
+		[identityMailboxes, unreadCounts],
+	);
+
 	return (
 		<div className="space-y-2 px-2">
+			<div>
+				<div className="px-1 mb-1 mt-2 text-xs font-semibold text-sidebar-foreground/60">
+					All accounts
+				</div>
+
+				<div className="space-y-1">
+					{UNIFIED_MAILBOX_KINDS.map((kind) => {
+						const Icon = ICON[kind] ?? Folder;
+						const href = `/w/${workspacePublicId}/dashboard/mail/all/${kind}`;
+						const isActive = pathname.endsWith(href);
+						const unread = unreadByKind[kind] ?? 0;
+
+						return (
+							<Link
+								key={kind}
+								href={href}
+								className={cn(
+									"group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+									"hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+									isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
+								)}
+							>
+								<Icon className="h-4 w-4 shrink-0" />
+								<span className="min-w-0 truncate">{TITLE[kind]}</span>
+								{unread > 0 && (
+									<span className="ml-auto text-xs text-muted-foreground">
+										{unread}
+									</span>
+								)}
+							</Link>
+						);
+					})}
+				</div>
+			</div>
+
 			<div className={"my-2"}>
 				<Select placeholder="Pick value"
 				        size={"xs"}
