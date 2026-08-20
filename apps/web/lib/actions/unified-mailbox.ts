@@ -10,7 +10,7 @@ import type {
 	UnifiedMailboxKind,
 } from "@/lib/unified-mailbox";
 import type { SearchThreadsResponse } from "@schema";
-import { searchMessages } from "@/lib/actions/mailbox";
+import { searchMessages } from "@/lib/search/search-messages";
 
 // Mirrors the ordering fetchMailboxThreads uses, so a unified list and a
 // per-account list agree on what "most recent" means.

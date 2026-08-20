@@ -22,11 +22,18 @@ export default async function Page({
 	if (!isUnifiedMailboxKind(mailboxKind)) notFound();
 
 	const sp = await searchParams;
-	const q = (sp.q as string) ?? "";
-	const has = (sp.has as string) === "1";
-	const unread = (sp.unread as string) === "1";
-	const starred = (sp.starred as string) === "1";
-	const page = Math.max(1, Number((sp.page as string) ?? 1));
+	// searchParams values are string | string[] | undefined (e.g. a repeated
+	// ?q=a&q=b makes sp.q an array) — narrow every read instead of asserting,
+	// so a hand-built URL can't 500 the page.
+	const first = (v: string | string[] | undefined) =>
+		Array.isArray(v) ? (v[0] ?? "") : (v ?? "");
+
+	const q = first(sp.q);
+	const has = first(sp.has) === "1";
+	const unread = first(sp.unread) === "1";
+	const starred = first(sp.starred) === "1";
+	const pageNum = Number(first(sp.page));
+	const page = Number.isFinite(pageNum) && pageNum > 0 ? Math.floor(pageNum) : 1;
 
 	const workspacePublicId = await getWorkspacePublicId();
 	if (!workspacePublicId) {

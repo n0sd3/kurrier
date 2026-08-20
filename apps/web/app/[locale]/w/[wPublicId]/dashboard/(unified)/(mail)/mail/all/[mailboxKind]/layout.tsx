@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, Suspense } from "react";
 import { notFound } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -39,10 +39,16 @@ export default async function UnifiedMailLayout({
 				<h1 className="text-sm font-semibold text-foreground/80 whitespace-nowrap">
 					{TITLE[mailboxKind]} · All accounts
 				</h1>
-				<UnifiedMailboxSearch
-					kind={mailboxKind}
-					workspacePublicId={workspacePublicId}
-				/>
+				<Suspense
+					fallback={
+						<div className="h-[42px] w-full min-w-0 flex-1 rounded-lg border bg-background sm:px-4" />
+					}
+				>
+					<UnifiedMailboxSearch
+						kind={mailboxKind}
+						workspacePublicId={workspacePublicId}
+					/>
+				</Suspense>
 			</header>
 
 			{children}

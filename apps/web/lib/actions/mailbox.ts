@@ -31,14 +31,13 @@ import {
 import { revalidatePath } from "next/cache";
 import {
 	FormState,
-	getServerEnv,
 	handleAction,
 	SearchThreadsResponse,
 } from "@schema";
 import { decode } from "decode-formdata";
 import { toArray } from "@/lib/utils";
 
-import Typesense, { Client } from "typesense";
+import { searchMessages } from "@/lib/search/search-messages";
 import { isSignedIn } from "@/lib/actions/auth";
 import slugify from "@sindresorhus/slugify";
 import { redirect } from "next/navigation";
@@ -50,32 +49,6 @@ import {fetchWorkspace} from "@/lib/actions/workspace";
 import { storageObjectUrl } from "@/lib/storage-object-access";
 import { s3 } from "@/lib/create-s3-client";
 import { isGmailIdentity } from "@common";
-
-let typeSenseClient: Client | null = null;
-function getTypeSenseClient(): Client {
-	if (typeSenseClient) return typeSenseClient;
-
-	const {
-		TYPESENSE_API_KEY,
-		TYPESENSE_PORT,
-		TYPESENSE_PROTOCOL,
-		TYPESENSE_HOST,
-	} = getServerEnv();
-
-	typeSenseClient = new Typesense.Client({
-		nodes: [
-			{
-				host: TYPESENSE_HOST,
-				port: Number(TYPESENSE_PORT),
-				protocol: TYPESENSE_PROTOCOL,
-			},
-		],
-		apiKey: TYPESENSE_API_KEY,
-	});
-
-	return typeSenseClient;
-}
-
 
 export const fetchMailbox = cache(
 	async (identityPublicId: string, mailboxSlug = "inbox") => {
@@ -469,55 +442,6 @@ export const deltaFetch = async ({
 		await job.waitUntilFinished(smtpEvents);
 	}
 
-};
-
-export const searchMessages = async (
-	filters: string[],
-	q: string,
-	page: number,
-): Promise<SearchThreadsResponse> => {
-	const client = getTypeSenseClient();
-
-	const result = (await client.collections("messages").documents().search({
-		q,
-		query_by: "subject,html,text,snippet,fromName,fromEmail,participants",
-		filter_by: filters.join(" && "),
-		sort_by: "createdAt:desc",
-		group_by: "threadId",
-		group_limit: 1,
-		per_page: PAGE_SIZE,
-		page,
-	})) as any;
-
-	const groups = result?.grouped_hits as
-		| Array<{ group_key: string[]; hits: Array<{ document: any }> }>
-		| undefined;
-
-	const sourceHits = groups?.length
-		? groups.map((g) => g.hits[0]?.document ?? {})
-		: (result?.hits ?? []).map((h: any) => h.document ?? {});
-
-	return {
-		items: sourceHits.map((d: any) => ({
-			id: d.id ?? "",
-			threadId: d.threadId ?? "",
-			mailboxId: d.mailboxId ?? "",
-			identityPublicId: d.identityPublicId ?? "",
-			subject: d.subject ?? null,
-			snippet: (d.snippet ?? d.text ?? "").slice(0, 200),
-			fromName: d.fromName ?? null,
-			fromEmail: d.fromEmail ?? null,
-			participants: Array.isArray(d.participants) ? d.participants : [],
-			labels: Array.isArray(d.labels) ? d.labels : [],
-			hasAttachment: Number(d.hasAttachment) === 1,
-			unread: Number(d.unread) === 1,
-			starred: Number(d.starred) === 1,
-			createdAt: d.createdAt ?? 0,
-			lastInThreadAt: d.lastInThreadAt ?? d.createdAt ?? 0,
-		})),
-		totalThreads: result?.found ?? sourceHits.length,
-		totalMessages: result?.found_docs ?? sourceHits.length,
-	};
 };
 
 export const initSearch = async (
