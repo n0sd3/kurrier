@@ -9,6 +9,7 @@ import Loading from "@/app/loading";
 import IdentityMailboxesListWrapper from "@/components/dashboard/workspaces/identity-mailboxes-list-wrapper";
 import NavUserWrapper from "@/components/ui/dashboards/workspace/nav-user-wrapper";
 import {fetchIdentityMailboxList} from "@/lib/actions/mailbox";
+import MailboxRealtime from "@/components/dashboard/realtime/mailbox-realtime";
 
 export default async function DashboardLayout({
 	children
@@ -21,6 +22,9 @@ export default async function DashboardLayout({
 
 	return (
 		<>
+			{/* Keeps the mailbox counts and the thread list live: subscribes to
+			    mailbox_threads changes and revalidates this layout's RSC tree. */}
+			<MailboxRealtime />
 			<AppSidebar
 				workspacePublicId={workspacePublicId}
 				sidebarTopContent={
