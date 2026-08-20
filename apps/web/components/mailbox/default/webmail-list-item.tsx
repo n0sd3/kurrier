@@ -2,7 +2,6 @@
 import React from "react";
 import { Mail, MailOpen, Paperclip, Trash2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { MailboxEntity, MailboxSyncEntity } from "@db";
 import {
 	FetchMailboxThreadsResult,
 	markAsRead,
@@ -14,13 +13,12 @@ import {
 	FetchLabelsResult,
 	FetchMailboxThreadLabelsResult,
 } from "@/lib/actions/labels";
+import { resolveRowMailbox, type MailboxContextMap } from "@/lib/unified-mailbox";
 import { IconStar, IconStarFilled } from "@tabler/icons-react";
 
 type Props = {
 	mailboxThreadItem: FetchMailboxThreadsResult[number];
-	activeMailbox: MailboxEntity;
-	identityPublicId: string;
-	mailboxSync: MailboxSyncEntity | undefined;
+	mailboxById: MailboxContextMap;
 	globalLabels: FetchLabelsResult;
 	labelsByThreadId: FetchMailboxThreadLabelsResult;
 	workspacePublicId?: string;
@@ -44,9 +42,7 @@ import SwipeableThreadRow, {
 
 export default function WebmailListItem({
 	mailboxThreadItem,
-	activeMailbox,
-	identityPublicId,
-	mailboxSync,
+	mailboxById,
 	globalLabels,
 	labelsByThreadId,
 	workspacePublicId
@@ -146,6 +142,11 @@ export default function WebmailListItem({
 		};
 	}
 
+	const rowContext = resolveRowMailbox(mailboxById, mailboxThreadItem);
+	const rowMailbox = rowContext?.mailbox ?? null;
+	const rowSync = rowContext?.sync ?? null;
+	const rowIdentityPublicId = mailboxThreadItem.identityPublicId;
+
 	const router = useRouter();
 
 	const timeLabel = getThreadTimeLabel(mailboxThreadItem);
@@ -155,8 +156,8 @@ export default function WebmailListItem({
 
 	const openThread = async () => {
 		const url = pathname.match("/dashboard/mail")
-			? `/w/${workspacePublicId}/dashboard/mail/${identityPublicId}/${activeMailbox.slug}/threads/${mailboxThreadItem.threadId}`
-			: `/mail/${identityPublicId}/${activeMailbox.slug}/threads/${mailboxThreadItem.threadId}`;
+			? `/w/${workspacePublicId}/dashboard/mail/${rowIdentityPublicId}/${rowMailbox?.slug}/threads/${mailboxThreadItem.threadId}`
+			: `/mail/${rowIdentityPublicId}/${rowMailbox?.slug}/threads/${mailboxThreadItem.threadId}`;
 
 		// TODO: Fix full page reload on snoozed page, hoist @thread layout to higher level
 		if (isOnSnoozedPage) {
@@ -168,12 +169,12 @@ export default function WebmailListItem({
 
 	const allNames = formatParticipants(
 		mailboxThreadItem.participants,
-		activeMailbox.kind,
+		rowMailbox?.kind ?? "inbox",
 	);
 	const previewText = cleanPreviewText(mailboxThreadItem.previewText);
 	const primary = primaryParticipant(
 		mailboxThreadItem.participants,
-		activeMailbox.kind,
+		rowMailbox?.kind ?? "inbox",
 	);
 
 	const canMarkAsRead = mailboxThreadItem.unreadCount > 0;
@@ -203,6 +204,11 @@ export default function WebmailListItem({
 		});
 	};
 
+	// A row whose mailbox is missing from the map cannot be acted on safely —
+	// every action needs a mailboxId, and guessing one would act on the wrong
+	// account. Drop the row instead.
+	if (!rowMailbox) return null;
+
 	if (isPending(mailboxThreadItem.threadId)) return null;
 
 	const swipeTrash: SwipeAction = {
@@ -215,8 +221,8 @@ export default function WebmailListItem({
 				() =>
 					moveToTrash(
 						mailboxThreadItem.threadId,
-						activeMailbox.id,
-						!!mailboxSync,
+						rowMailbox.id,
+						!!rowSync,
 						true,
 						undefined,
 						pathname,
@@ -237,8 +243,8 @@ export default function WebmailListItem({
 						() =>
 							markAsRead(
 								mailboxThreadItem.threadId,
-								activeMailbox.id,
-								!!mailboxSync,
+								rowMailbox.id,
+								!!rowSync,
 								true,
 								pathname,
 							),
@@ -294,9 +300,9 @@ export default function WebmailListItem({
 						onClick={async () => {
 							await toggleStar(
 								mailboxThreadItem.threadId,
-								activeMailbox.id,
+								rowMailbox.id,
 								mailboxThreadItem.starred,
-								!!mailboxSync,
+								!!rowSync,
 								pathname,
 							);
 							router.refresh();
@@ -393,8 +399,8 @@ export default function WebmailListItem({
 							onClick={async () => {
 								await markAsUnread(
 									mailboxThreadItem.threadId,
-									activeMailbox.id,
-									!!mailboxSync,
+									rowMailbox.id,
+									!!rowSync,
 									true,
 									pathname,
 								);
@@ -411,8 +417,8 @@ export default function WebmailListItem({
 							onClick={async () => {
 								await markAsRead(
 									mailboxThreadItem.threadId,
-									activeMailbox.id,
-									!!mailboxSync,
+									rowMailbox.id,
+									!!rowSync,
 									true,
 									pathname,
 								);
@@ -427,7 +433,7 @@ export default function WebmailListItem({
 
 					<SnoozeMail
 						mailboxThreadId={mailboxThreadItem.threadId}
-						activeMailboxId={activeMailbox.id}
+						activeMailboxId={rowMailbox.id}
 					/>
 
 					<button
@@ -435,8 +441,8 @@ export default function WebmailListItem({
 							try {
 								await moveToTrash(
 									mailboxThreadItem.threadId,
-									activeMailbox.id,
-									!!mailboxSync,
+									rowMailbox.id,
+									!!rowSync,
 									true,
 									undefined,
 									pathname,

@@ -40,6 +40,14 @@ async function Page({
 		mailboxSlug,
 	)
 	const workspacePublicId = await getWorkspacePublicId()
+	const { activeMailbox, identity, mailboxSync } = await fetchMailboxPromise;
+	const mailboxById = {
+		[activeMailbox.id]: {
+			mailbox: activeMailbox,
+			identity,
+			sync: mailboxSync ?? null,
+		},
+	};
 	return (
 		<>
 			<div className="flex flex-1 flex-col gap-4 p-4 mb-12">
@@ -51,6 +59,7 @@ async function Page({
 					identityMailboxesPromise={identityMailboxesPromise}
 					globalLabelsPromise={globalLabelsPromise}
 					workspacePublicId={workspacePublicId}
+					mailboxById={mailboxById}
 				/>
 
 				<MailPagination

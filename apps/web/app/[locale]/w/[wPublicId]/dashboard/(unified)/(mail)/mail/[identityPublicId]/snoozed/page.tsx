@@ -23,10 +23,17 @@ export default async function SnoozedPage({
 		threads.length > 0 ? await fetchMailboxThreadLabels(threads) : {};
 
 	const firstMailboxSlug = threads[0]?.mailboxSlug || "inbox";
-	const { activeMailbox } = await fetchMailbox(
+	const { activeMailbox, identity, mailboxSync } = await fetchMailbox(
 		identityPublicId,
 		firstMailboxSlug,
 	);
+	const mailboxById = {
+		[activeMailbox.id]: {
+			mailbox: activeMailbox,
+			identity,
+			sync: mailboxSync ?? null,
+		},
+	};
 
 	const filteredThreads = threads.filter(
 		(thread) => thread.identityPublicId === identityPublicId,
@@ -55,6 +62,7 @@ export default async function SnoozedPage({
 					identityMailboxes={identityMailboxes}
 					globalLabels={globalLabels}
 					labelsByThreadId={labelsByThreadId}
+					mailboxById={mailboxById}
 				/>
 			)}
 		</div>

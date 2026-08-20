@@ -25,10 +25,17 @@ export default async function LabelPage({
 		1,
 		Number((resolvedSearchParams.page as string | undefined) ?? 1),
 	);
-	const { activeMailbox, mailboxSync } = await fetchMailbox(
+	const { activeMailbox, identity, mailboxSync } = await fetchMailbox(
 		identityPublicId,
 		mailboxSlug,
 	);
+	const mailboxById = {
+		[activeMailbox.id]: {
+			mailbox: activeMailbox,
+			identity,
+			sync: mailboxSync ?? null,
+		},
+	};
 
 	const identityMailboxes = await fetchIdentityMailboxList();
 	const globalLabels = await fetchLabelsByIdentityPublicId({
@@ -77,6 +84,7 @@ export default async function LabelPage({
 				identityMailboxes={identityMailboxes}
 				globalLabels={globalLabels}
 				labelsByThreadId={labelsByThreadId}
+				mailboxById={mailboxById}
 			/>
 
 			<LabelPagination

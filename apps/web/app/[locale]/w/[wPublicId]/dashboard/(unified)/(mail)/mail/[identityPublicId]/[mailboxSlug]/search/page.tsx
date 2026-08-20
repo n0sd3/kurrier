@@ -38,7 +38,14 @@ export default async function SearchPage({
 		);
 	}
 
-	const { activeMailbox } = await fetchMailbox(identityPublicId, mailboxSlug);
+	const { activeMailbox, identity, mailboxSync } = await fetchMailbox(identityPublicId, mailboxSlug);
+	const mailboxById = {
+		[activeMailbox.id]: {
+			mailbox: activeMailbox,
+			identity,
+			sync: mailboxSync ?? null,
+		},
+	};
 	const publicConfig = await getPublicEnv();
 
 	let items: ThreadHit[] = [];
@@ -122,6 +129,7 @@ export default async function SearchPage({
 					identityMailboxes={identityMailboxes}
 					globalLabels={globalLabels}
 					labelsByThreadId={labelsByThreadId}
+					mailboxById={mailboxById}
 				/>
 			)}
 

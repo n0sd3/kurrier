@@ -15,6 +15,7 @@ import { DynamicContextProvider } from "@/hooks/use-dynamic-context";
 import { PendingThreadActionsProvider } from "@/hooks/use-pending-thread-actions";
 import { useParams, useRouter } from "next/navigation";
 import {use} from "react";
+import type { MailboxContextMap } from "@/lib/unified-mailbox";
 
 type WebListProps = {
 	mailboxThreadPromise: Promise<{ mailboxThreads: FetchMailboxThreadsResult, labelsByThreadId: FetchMailboxThreadLabelsResult }>;
@@ -24,6 +25,7 @@ type WebListProps = {
 	fetchMailboxPromise: Promise<FetchMailboxResult>;
 	globalLabelsPromise: Promise<FetchLabelsResult>;
 	workspacePublicId?: string;
+	mailboxById: MailboxContextMap;
 };
 
 export default function WebmailList({
@@ -33,7 +35,8 @@ export default function WebmailList({
 	identityMailboxesPromise,
 	globalLabelsPromise,
 	workspacePublicId,
-	fetchMailboxPromise
+	fetchMailboxPromise,
+	mailboxById
 }: WebListProps) {
 	const {labelsByThreadId, mailboxThreads} = use(mailboxThreadPromise)
 	const globalLabels = use(globalLabelsPromise)
@@ -76,9 +79,7 @@ export default function WebmailList({
 									}
 									mailboxThreadItem={mailboxThreadItem}
 									workspacePublicId={workspacePublicId}
-									activeMailbox={activeMailbox}
-									identityPublicId={identityPublicId}
-									mailboxSync={mailboxSync ?? undefined}
+									mailboxById={mailboxById}
 									globalLabels={globalLabels}
 									labelsByThreadId={labelsByThreadId}
 								/>

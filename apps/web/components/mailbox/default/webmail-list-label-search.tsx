@@ -15,6 +15,7 @@ import WebmailListItem from "@/components/mailbox/default/webmail-list-item";
 import { DynamicContextProvider } from "@/hooks/use-dynamic-context";
 import { PendingThreadActionsProvider } from "@/hooks/use-pending-thread-actions";
 import { useParams, useRouter } from "next/navigation";
+import type { MailboxContextMap } from "@/lib/unified-mailbox";
 
 type WebListProps = {
     mailboxThreads: FetchMailboxThreadsResult;
@@ -26,6 +27,7 @@ type WebListProps = {
     labelsByThreadId: FetchMailboxThreadLabelsResult;
     workspacePublicId?: string;
     mailboxSync?: MailboxSyncEntity;
+    mailboxById: MailboxContextMap;
 };
 
 export default function WebmailListLabelSearch({
@@ -38,6 +40,7 @@ export default function WebmailListLabelSearch({
                                         globalLabels,
                                         workspacePublicId,
                                         labelsByThreadId,
+                                        mailboxById,
                                     }: WebListProps) {
     const params = useParams();
     const router = useRouter();
@@ -75,9 +78,7 @@ export default function WebmailListLabelSearch({
                                     }
                                     mailboxThreadItem={mailboxThreadItem}
                                     workspacePublicId={workspacePublicId}
-                                    activeMailbox={activeMailbox}
-                                    identityPublicId={identityPublicId}
-                                    mailboxSync={mailboxSync ?? undefined}
+                                    mailboxById={mailboxById}
                                     globalLabels={globalLabels}
                                     labelsByThreadId={labelsByThreadId}
                                 />
