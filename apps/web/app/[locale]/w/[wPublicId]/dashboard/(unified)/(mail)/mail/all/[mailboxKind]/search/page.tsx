@@ -100,6 +100,7 @@ export default async function Page({
 					globalLabels={await fetchLabels("thread")}
 					labelsByThreadId={labelsByThreadId}
 					isUnified
+					viewKind={mailboxKind}
 				/>
 			)}
 		</div>

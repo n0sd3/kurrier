@@ -54,7 +54,6 @@ async function Page({
 				<WebmailList
 					mailboxThreadPromise={mailboxThreadPromise}
 					publicConfig={publicConfig}
-					identityPublicId={identityPublicId}
 					fetchMailboxPromise={fetchMailboxPromise}
 					identityMailboxesPromise={identityMailboxesPromise}
 					globalLabelsPromise={globalLabelsPromise}

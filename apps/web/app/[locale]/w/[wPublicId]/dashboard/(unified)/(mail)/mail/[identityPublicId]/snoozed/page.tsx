@@ -71,11 +71,11 @@ export default async function SnoozedPage({
 					publicConfig={publicConfig}
 					workspacePublicId={workspacePublicId}
 					activeMailbox={activeMailbox}
-					identityPublicId={identityPublicId}
 					identityMailboxes={identityMailboxes}
 					globalLabels={globalLabels}
 					labelsByThreadId={labelsByThreadId}
 					mailboxById={mailboxById}
+					isUnified
 				/>
 			)}
 		</div>

@@ -16,12 +16,12 @@ import { DynamicContextProvider } from "@/hooks/use-dynamic-context";
 import { PendingThreadActionsProvider } from "@/hooks/use-pending-thread-actions";
 import { useParams, useRouter } from "next/navigation";
 import type { MailboxContextMap } from "@/lib/unified-mailbox";
+import type { MailboxKind } from "@schema";
 
 type WebListProps = {
     mailboxThreads: FetchMailboxThreadsResult;
     publicConfig: PublicConfig;
     activeMailbox?: MailboxEntity | null;
-    identityPublicId?: string;
     identityMailboxes: FetchIdentityMailboxListResult;
     globalLabels: FetchLabelsResult;
     labelsByThreadId: FetchMailboxThreadLabelsResult;
@@ -30,11 +30,11 @@ type WebListProps = {
     mailboxById: MailboxContextMap;
     emptyLabel?: string;
     isUnified?: boolean;
+    viewKind?: MailboxKind;
 };
 
 export default function WebmailListLabelSearch({
                                         mailboxThreads,
-                                        identityPublicId,
                                         mailboxSync,
                                         activeMailbox,
                                         publicConfig,
@@ -45,6 +45,7 @@ export default function WebmailListLabelSearch({
                                         mailboxById,
                                         emptyLabel,
                                         isUnified,
+                                        viewKind,
                                     }: WebListProps) {
     const params = useParams();
     const router = useRouter();
@@ -54,8 +55,6 @@ export default function WebmailListLabelSearch({
             <DynamicContextProvider
                 initialState={{
                     selectedThreadIds: new Set(),
-                    activeMailbox,
-                    identityPublicId,
                 }}
             >
                 {mailboxThreads.length === 0 ? (
@@ -75,6 +74,7 @@ export default function WebmailListLabelSearch({
                             activeMailbox={activeMailbox}
                             mailboxById={mailboxById}
                             isUnified={isUnified}
+                            viewKind={viewKind}
                         />
 
                         <PendingThreadActionsProvider onSettled={() => router.refresh()}>

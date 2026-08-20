@@ -59,8 +59,6 @@ function MailListHeader({
 	const isGmailIdentity = !!(identity?.metaData as any)?.gmail?.googleAccountId;
 	const { state, setState } = useDynamicContext<{
 		selectedThreadIds: Set<string>;
-		activeMailbox?: MailboxEntity | null;
-		identityPublicId: string;
 	}>();
 
 	const identityIdRef = useRef<string | undefined>(activeMailbox?.identityId);

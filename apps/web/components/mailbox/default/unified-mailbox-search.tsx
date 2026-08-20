@@ -35,10 +35,12 @@ export default function UnifiedMailboxSearch({
 		if (!q) return;
 
 		// Not the filter toggles (still out of scope) — just don't silently
-		// drop has/unread/starred/page that are already in the URL when the
-		// query changes.
+		// drop has/unread/starred that are already in the URL when the query
+		// changes. page does reset: a new query on page 3 shouldn't land on
+		// page 3 of the new results.
 		const next = new URLSearchParams(searchParams.toString());
 		next.set("q", q);
+		next.delete("page");
 		router.push(`/w/${workspacePublicId}/dashboard/mail/all/${kind}/search?${next.toString()}`);
 	};
 

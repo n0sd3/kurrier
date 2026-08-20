@@ -79,7 +79,6 @@ export default async function LabelPage({
 				publicConfig={publicConfig}
 				activeMailbox={activeMailbox}
 				workspacePublicId={workspacePublicId}
-				identityPublicId={identityPublicId}
 				mailboxSync={mailboxSync ?? undefined}
 				identityMailboxes={identityMailboxes}
 				globalLabels={globalLabels}

@@ -21,7 +21,6 @@ import type { MailboxKind } from "@schema";
 type WebListProps = {
 	mailboxThreadPromise: Promise<{ mailboxThreads: FetchMailboxThreadsResult, labelsByThreadId: FetchMailboxThreadLabelsResult }>;
 	publicConfig: PublicConfig;
-	identityPublicId?: string;
 	mailboxById: MailboxContextMap;
 	identityMailboxesPromise: Promise<FetchIdentityMailboxListResult>;
 	fetchMailboxPromise?: Promise<FetchMailboxResult>;
@@ -34,7 +33,6 @@ type WebListProps = {
 
 export default function WebmailList({
 	mailboxThreadPromise,
-	identityPublicId,
 	publicConfig,
 	identityMailboxesPromise,
 	globalLabelsPromise,

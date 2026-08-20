@@ -4,11 +4,13 @@ import { getWorkspacePublicId } from "@/lib/actions/clients";
 import { fetchIdentityMailboxList } from "@/lib/actions/mailbox";
 import {
 	fetchUnifiedMailboxContext,
+	fetchUnifiedThreadCount,
 	fetchUnifiedThreads,
 } from "@/lib/actions/unified-mailbox";
 import { fetchLabels, fetchMailboxThreadLabels } from "@/lib/actions/labels";
 import { isUnifiedMailboxKind } from "@/lib/unified-mailbox";
 import WebmailList from "@/components/mailbox/default/webmail-list";
+import { PAGE_SIZE } from "@common/mail-client";
 
 const TITLE: Record<string, string> = {
 	inbox: "Inbox",
@@ -41,6 +43,12 @@ export default async function Page({
 		return { mailboxThreads, labelsByThreadId };
 	});
 
+	// Full pagination is out of scope here, so the list only ever shows the
+	// first PAGE_SIZE threads. The count is RLS-scoped and mirrors the list
+	// query's WHERE clause, so it's safe to use purely to tell the user
+	// there's more, without fetching or rendering the rest.
+	const totalCount = await fetchUnifiedThreadCount(mailboxKind);
+
 	return (
 		<div className="flex flex-1 flex-col gap-4 p-4 mb-12">
 			<WebmailList
@@ -54,6 +62,12 @@ export default async function Page({
 				isUnified
 				viewKind={mailboxKind}
 			/>
+
+			{totalCount > PAGE_SIZE && (
+				<div className="text-center text-xs text-muted-foreground">
+					Showing the {PAGE_SIZE} most recent of {totalCount}
+				</div>
+			)}
 		</div>
 	);
 }

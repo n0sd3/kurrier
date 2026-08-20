@@ -129,7 +129,6 @@ export default async function SearchPage({
 					workspacePublicId={workspacePublicId}
 					publicConfig={publicConfig}
 					activeMailbox={activeMailbox}
-					identityPublicId={identityPublicId}
 					identityMailboxes={identityMailboxes}
 					globalLabels={globalLabels}
 					labelsByThreadId={labelsByThreadId}
