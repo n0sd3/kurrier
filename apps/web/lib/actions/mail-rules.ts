@@ -369,9 +369,12 @@ export async function runRuleNow(_prev: any, formData: FormData) {
             "rules:run-existing",
             { ruleId: rule.id },
             {
+                // The fixed jobId collapses double-clicks while a run is queued
+                // or in flight. Both removal flags must stay true: a job left
+                // behind under this id makes every later click a silent no-op.
                 jobId: `rules-run-existing-${rule.id}`,
                 removeOnComplete: true,
-                removeOnFail: false,
+                removeOnFail: true,
                 attempts: 1,
             },
         );

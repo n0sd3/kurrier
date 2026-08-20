@@ -75,7 +75,11 @@ export async function runRuleOnExistingMessages({ ruleId }: { ruleId: string }) 
 	let matched = 0;
 	// Keyset, not OFFSET: the `trash` action moves messages out of the mailboxes
 	// we are paging over, which would shift an offset window past unread rows.
-	let cursor: { createdAt: Date; id: string } | null = null;
+	// The cursor is carried as an ISO string with explicit casts: bound as a
+	// bare param it reaches Postgres as text ("operator does not exist:
+	// timestamp with time zone < text"), and a JS Date serialises to a format
+	// timestamptz refuses to parse.
+	let cursor: { createdAt: string; id: string } | null = null;
 
 	while (scanned < MAX_MESSAGES) {
 		const batch: any[] = await db
@@ -85,7 +89,7 @@ export async function runRuleOnExistingMessages({ ruleId }: { ruleId: string }) 
 				cursor
 					? and(
 							inArray(messages.mailboxId, mailboxIds),
-							sql`(${messages.createdAt}, ${messages.id}) < (${cursor.createdAt}, ${cursor.id}::uuid)`,
+							sql`(${messages.createdAt}, ${messages.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`,
 						)
 					: inArray(messages.mailboxId, mailboxIds),
 			)
@@ -95,7 +99,10 @@ export async function runRuleOnExistingMessages({ ruleId }: { ruleId: string }) 
 		if (!batch.length) break;
 
 		const last = batch[batch.length - 1];
-		cursor = { createdAt: last.createdAt, id: last.id };
+		cursor = {
+			createdAt: new Date(last.createdAt).toISOString(),
+			id: last.id,
+		};
 
 		for (const message of batch) {
 			scanned++;
