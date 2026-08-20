@@ -62,3 +62,6 @@ db/caddy
 apps/web/.pnpm-store/
 .pnpm-store
 packages/db/src/drizzle/*.sql
+
+# Subagent-driven development scratch (ledger, briefs, review packages)
+.superpowers/
