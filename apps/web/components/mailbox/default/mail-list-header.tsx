@@ -32,6 +32,7 @@ import { useMediaQuery } from "@mantine/hooks";
 import { clsx } from "clsx";
 import MoveToFolder from "@/components/mailbox/default/move-to-folder";
 import { usePathname, useRouter } from "next/navigation";
+import { groupSelectionByMailbox, type MailboxContextMap } from "@/lib/unified-mailbox";
 
 function MailListHeader({
 	mailboxThreads,
@@ -40,13 +41,17 @@ function MailListHeader({
 	identityMailboxes,
 	activeMailbox,
 	identity,
+	mailboxById,
+	isUnified = false,
 }: {
 	mailboxThreads: FetchMailboxThreadsResult;
 	publicConfig: PublicConfig;
 	identityMailboxes: FetchIdentityMailboxListResult;
-	activeMailbox: MailboxEntity;
+	activeMailbox?: MailboxEntity | null;
 	mailboxSync?: MailboxSyncEntity;
 	identity?: IdentityEntity;
+	mailboxById: MailboxContextMap;
+	isUnified?: boolean;
 }) {
 	const isGmailIdentity = !!(identity?.metaData as any)?.gmail?.googleAccountId;
 	const { state, setState } = useDynamicContext<{
@@ -57,7 +62,13 @@ function MailListHeader({
 
 	const identityIdRef = useRef<string | undefined>(activeMailbox?.identityId);
 	const mailboxIdRef = useRef<string | undefined>(activeMailbox?.id);
-	const mailboxKind = useRef<string | undefined>(activeMailbox?.kind);
+
+	// In a unified view every row shares the same kind (the route picks one),
+	// so the first resolved row is representative.
+	const viewKind =
+		activeMailbox?.kind ??
+		mailboxById[mailboxThreads[0]?.mailboxId ?? ""]?.mailbox.kind ??
+		"inbox";
 	useEffect(() => {
 		if (activeMailbox?.identityId)
 			identityIdRef.current = activeMailbox.identityId;
@@ -71,6 +82,25 @@ function MailListHeader({
 
 	const clearSelection = () =>
 		setState((prev) => ({ ...(prev ?? {}), selectedThreadIds: new Set() }));
+
+	// A selection can span accounts, and every action takes a single mailboxId.
+	// Fan out one call per mailbox, each carrying that account's own sync flag.
+	const forEachSelectedGroup = async (
+		run: (group: { mailboxId: string; threadIds: string[]; imap: boolean }) => Promise<unknown>,
+	) => {
+		const selected = state?.selectedThreadIds ?? new Set<string>();
+		const groups = groupSelectionByMailbox(mailboxThreads, selected);
+
+		await Promise.all(
+			groups.map((group) =>
+				run({
+					mailboxId: group.mailboxId,
+					threadIds: group.threadIds,
+					imap: !!mailboxById[group.mailboxId]?.sync,
+				}),
+			),
+		);
+	};
 
 	// Threads can leave the list without going through this header — a swipe, a
 	// move to another folder, a sync. Drop ids that are no longer on screen so
@@ -90,12 +120,18 @@ function MailListHeader({
 
 	const [reloading, setReloading] = useState(false);
 	const reload = async () => {
-		const identityId = identityIdRef.current;
 		try {
 			setReloading(true);
-			if (identityId) {
-				await deltaFetch({ identityId });
-			}
+
+			const identityIds = isUnified
+				? [
+						...new Set(
+							Object.values(mailboxById).map((c) => c.identity.id),
+						),
+					]
+				: [identityIdRef.current].filter(Boolean) as string[];
+
+			await Promise.all(identityIds.map((id) => deltaFetch({ identityId: id })));
 			await revalidateMailbox(pathName);
 			router.refresh();
 			toast.success("Mailbox synced", { position: "bottom-left" });
@@ -133,12 +169,8 @@ function MailListHeader({
 	const markRead = async () => {
 		try {
 			setMarkingRead(true);
-			await markAsRead(
-				Array.from(state?.selectedThreadIds ?? []),
-				String(mailboxIdRef.current),
-				!!mailboxSync,
-				true,
-				pathName,
+			await forEachSelectedGroup(({ mailboxId, threadIds, imap }) =>
+				markAsRead(threadIds, mailboxId, imap, true, pathName),
 			);
 			clearSelection();
 			router.refresh();
@@ -151,7 +183,7 @@ function MailListHeader({
 
 	const [bulkDeleting, setBulkDeleting] = useState(false);
 	const deleteThreads = async () => {
-		if (mailboxKind.current === "trash") {
+		if (viewKind === "trash") {
 			await removeTrash();
 			return;
 		}
@@ -162,13 +194,8 @@ function MailListHeader({
 		);
 		try {
 			setBulkDeleting(true);
-			await moveToTrash(
-				Array.from(state?.selectedThreadIds ?? []),
-				String(mailboxIdRef.current),
-				!!mailboxSync,
-				true,
-				undefined,
-				pathName,
+			await forEachSelectedGroup(({ mailboxId, threadIds, imap }) =>
+				moveToTrash(threadIds, mailboxId, imap, true, undefined, pathName),
 			);
 			clearSelection();
 			router.refresh();
@@ -188,13 +215,8 @@ function MailListHeader({
 		);
 		try {
 			setBulkDeleting(true);
-			await deleteForever(
-				Array.from(state?.selectedThreadIds ?? []),
-				String(mailboxIdRef.current),
-				!!mailboxSync,
-				true,
-				undefined,
-				pathName,
+			await forEachSelectedGroup(({ mailboxId, threadIds, imap }) =>
+				deleteForever(threadIds, mailboxId, imap, true, undefined, pathName),
 			);
 			clearSelection();
 			router.refresh();
@@ -272,7 +294,7 @@ function MailListHeader({
 						</ActionIcon>
 					</Tooltip>
 
-					{isGmailIdentity && (
+					{isGmailIdentity && !isUnified && (
 						<Tooltip label="Full resync from Gmail" withArrow>
 							<ActionIcon
 								variant="subtle"
@@ -294,10 +316,14 @@ function MailListHeader({
 								: "opacity-0 hidden pointer-events-none",
 						)}
 					>
-						<MoveToFolder
-							identityMailboxes={identityMailboxes}
-							activeMailbox={activeMailbox}
-						/>
+						{!isUnified && (
+							// MoveToFolder targets a single account's folder list, so it only
+							// renders in the per-account view, where activeMailbox is always set.
+							<MoveToFolder
+								identityMailboxes={identityMailboxes}
+								activeMailbox={activeMailbox as MailboxEntity}
+							/>
+						)}
 						<button
 							type="button"
 							onClick={deleteThreads}
@@ -330,7 +356,7 @@ function MailListHeader({
 				</div>
 			</div>
 
-			{mailboxKind.current === "trash" && (
+			{viewKind === "trash" && (
 				<div
 					className={
 						"flex p-2 text-sm text-muted-foreground justify-center mb-3  mx-2 rounded items-center"
@@ -340,28 +366,30 @@ function MailListHeader({
 						Messages that have been in the Trash for more than 30 days will be
 						deleted automatically.
 					</span>
-					<AlertDialog>
-						<AlertDialogTrigger asChild={true} className={"-mx-2"}>
-							<Button variant={"transparent"} loading={emptyingTrash}>
-								Empty Bin Now
-							</Button>
-						</AlertDialogTrigger>
-						<AlertDialogContent>
-							<AlertDialogHeader>
-								<AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-								<AlertDialogDescription>
-									This action cannot be undone. This will permanently delete
-									your account and remove your data from our servers.
-								</AlertDialogDescription>
-							</AlertDialogHeader>
-							<AlertDialogFooter>
-								<AlertDialogCancel>Cancel</AlertDialogCancel>
-								<AlertDialogAction onClick={emptyTrash}>
-									Continue
-								</AlertDialogAction>
-							</AlertDialogFooter>
-						</AlertDialogContent>
-					</AlertDialog>
+					{!isUnified && (
+						<AlertDialog>
+							<AlertDialogTrigger asChild={true} className={"-mx-2"}>
+								<Button variant={"transparent"} loading={emptyingTrash}>
+									Empty Bin Now
+								</Button>
+							</AlertDialogTrigger>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+									<AlertDialogDescription>
+										This action cannot be undone. This will permanently delete
+										your account and remove your data from our servers.
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Cancel</AlertDialogCancel>
+									<AlertDialogAction onClick={emptyTrash}>
+										Continue
+									</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
+					)}
 				</div>
 			)}
 		</>

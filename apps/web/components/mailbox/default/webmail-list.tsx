@@ -68,6 +68,7 @@ export default function WebmailList({
 							identityMailboxes={identityMailboxes}
 							activeMailbox={activeMailbox}
 							identity={identity}
+							mailboxById={mailboxById}
 						/>
 
 						<PendingThreadActionsProvider onSettled={() => router.refresh()}>

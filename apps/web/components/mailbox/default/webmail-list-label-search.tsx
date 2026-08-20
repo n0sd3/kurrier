@@ -67,6 +67,7 @@ export default function WebmailListLabelSearch({
                             publicConfig={publicConfig}
                             identityMailboxes={identityMailboxes}
                             activeMailbox={activeMailbox}
+                            mailboxById={mailboxById}
                         />
 
                         <PendingThreadActionsProvider onSettled={() => router.refresh()}>
