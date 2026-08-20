@@ -1,6 +1,6 @@
 import {cache} from "react";
 import {currentSession, isSignedIn} from "@/lib/actions/auth";
-import {createDrizzleClientInstance, identities, workspaceMembers, workspaces} from "@db";
+import {createDrizzleClientInstance, workspaceMembers, workspaces} from "@db";
 import {cookies} from "next/headers";
 import {and, eq, or} from "drizzle-orm";
 
@@ -60,20 +60,15 @@ export const resolveLandingPath = async () => {
 
 	const base = `/w/${context.publicId}/dashboard`;
 
+	// defaultIdentityId doubles as the "this workspace is set up" signal. With no
+	// identity connected the unified mailbox would be empty, so the overview —
+	// where an account gets connected — stays the useful landing.
 	if (!context.defaultIdentityId) return `${base}/platform/overview`;
 
-	const session = await currentSession();
-	const { admin } = await createDrizzleClientInstance(session, {});
-
-	const [identity] = await admin
-		.select({ publicId: identities.publicId })
-		.from(identities)
-		.where(eq(identities.id, context.defaultIdentityId))
-		.limit(1);
-
-	return identity
-		? `${base}/mail/${identity.publicId}/inbox`
-		: `${base}/platform/overview`;
+	// The unified mailbox spans every connected account, so its URL needs no
+	// identity. That removes the lookup this function used to do purely to turn
+	// defaultIdentityId into a publicId.
+	return `${base}/mail/all/inbox`;
 };
 
 export const getWorkspaceId = async () => {

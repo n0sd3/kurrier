@@ -1,7 +1,7 @@
 "use server";
 
 import { APP_VERSION } from "@common";
-import { db, identities, users, workspaces, workspaceMembers } from "@db";
+import { db, users, workspaces, workspaceMembers } from "@db";
 import { FormState, getPublicEnv, getServerEnv } from "@schema";
 import argon2 from "argon2";
 import { Queue, QueueEvents } from "bullmq";
@@ -332,18 +332,17 @@ export async function getWorkspaceRedirectUrl(user: Pick<typeof users.$inferSele
 
 	await updateWorkSpaceContext(target.publicId, target.id, user);
 
+	// defaultIdentityId doubles as the "this workspace is set up" signal. With no
+	// identity connected the unified mailbox would be empty, so the overview —
+	// where an account gets connected — stays the useful landing.
 	if (target.defaultIdentityId) {
-		const [defaultIdentity] = await db
-			.select()
-			.from(identities)
-			.where(eq(identities.id, target.defaultIdentityId));
-
-		if (defaultIdentity) {
-			if (locale) {
-				redirect(withLocale(locale,`/w/${target.publicId}/dashboard/platform/overview`));
-			}
-			return `/w/${target.publicId}/dashboard/mail/${defaultIdentity.publicId}/inbox`;
+		if (locale) {
+			redirect(withLocale(locale,`/w/${target.publicId}/dashboard/platform/overview`));
 		}
+		// The unified mailbox spans every connected account, so its URL needs no
+		// identity. That removes the lookup this function used to do purely to
+		// turn defaultIdentityId into a publicId.
+		return `/w/${target.publicId}/dashboard/mail/all/inbox`;
 	}
 
 	return `/w/${target.publicId}/dashboard/platform/overview`;
