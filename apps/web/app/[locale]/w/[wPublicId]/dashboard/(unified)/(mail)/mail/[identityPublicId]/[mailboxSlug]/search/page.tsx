@@ -38,12 +38,16 @@ export default async function SearchPage({
 		);
 	}
 
-	const { activeMailbox, identity, mailboxSync } = await fetchMailbox(identityPublicId, mailboxSlug);
+	const { activeMailbox, identity } = await fetchMailbox(identityPublicId, mailboxSlug);
 	const mailboxById = {
 		[activeMailbox.id]: {
 			mailbox: activeMailbox,
 			identity,
-			sync: mailboxSync ?? null,
+			// This page has never passed a sync flag to the list, so swipe/hover
+			// actions here have never propagated to IMAP; `sync: null` preserves
+			// that. Wiring it up is a separate, deliberate decision, recorded as
+			// a known issue.
+			sync: null,
 		},
 	};
 	const publicConfig = await getPublicEnv();

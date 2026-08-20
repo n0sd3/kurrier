@@ -7,6 +7,7 @@ import { fetchLabels, fetchMailboxThreadLabels } from "@/lib/actions/labels";
 import { getPublicEnv } from "@schema";
 import {getWorkspacePublicId} from "@/lib/actions/clients";
 import WebmailListLabelSearch from "@/components/mailbox/default/webmail-list-label-search";
+import type { MailboxContextMap } from "@/lib/unified-mailbox";
 
 export default async function SnoozedPage({
 	params,
@@ -23,17 +24,29 @@ export default async function SnoozedPage({
 		threads.length > 0 ? await fetchMailboxThreadLabels(threads) : {};
 
 	const firstMailboxSlug = threads[0]?.mailboxSlug || "inbox";
-	const { activeMailbox, identity, mailboxSync } = await fetchMailbox(
+	const { activeMailbox } = await fetchMailbox(
 		identityPublicId,
 		firstMailboxSlug,
 	);
-	const mailboxById = {
-		[activeMailbox.id]: {
-			mailbox: activeMailbox,
-			identity,
-			sync: mailboxSync ?? null,
-		},
-	};
+
+	// A snoozed thread can come from any mailbox on the identity (Inbox, Archive,
+	// a custom folder, ...), not just the one `activeMailbox` above resolves to —
+	// so the row map must cover every mailbox, not a single entry, or rows whose
+	// mailboxId isn't the one guessed above would silently disappear.
+	//
+	// This page has never passed a sync flag to the list, so swipe/hover actions
+	// here have never propagated to IMAP; `sync: null` preserves that. Wiring it
+	// up is a separate, deliberate decision, recorded as a known issue.
+	const mailboxById: MailboxContextMap = {};
+	for (const entry of identityMailboxes) {
+		for (const mailbox of entry.mailboxes) {
+			mailboxById[mailbox.id] = {
+				mailbox,
+				identity: entry.identity,
+				sync: null,
+			};
+		}
+	}
 
 	const filteredThreads = threads.filter(
 		(thread) => thread.identityPublicId === identityPublicId,
