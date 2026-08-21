@@ -10,7 +10,7 @@ import {
 	LayoutDashboard,
 	type LucideIcon,
 	Plug,
-	Send, Users, Webhook,
+	Send, Users, Vault, Webhook,
 } from "lucide-react";
 
 import {
@@ -31,9 +31,11 @@ import {
 } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSiteFeatures } from "@/components/providers/site-features-provider";
 
 export function NavMain({workspacePublicId, workspaceRole, isInstanceAdmin}: {workspacePublicId?: string, workspaceRole?: string, isInstanceAdmin?: boolean}) {
 	const pathname = usePathname();
+	const { drive } = useSiteFeatures();
 
 	const navPlatformItems: {
 		title: string;
@@ -77,10 +79,20 @@ export function NavMain({workspacePublicId, workspaceRole, isInstanceAdmin}: {wo
 					icon: Blocks,
 					items: [],
 				},
+				...(drive
+					? [
+							{
+								title: "Storage",
+								url: `/w/${workspacePublicId}/dashboard/platform/storage`,
+								icon: HardDrive,
+								items: [],
+							},
+						]
+					: []),
 				{
-					title: "Storage",
-					url: `/w/${workspacePublicId}/dashboard/platform/storage`,
-					icon: HardDrive,
+					title: "Vault",
+					url: `/w/${workspacePublicId}/dashboard/platform/vault`,
+					icon: Vault,
 					items: [],
 				},
 				{
@@ -120,8 +132,7 @@ export function NavMain({workspacePublicId, workspaceRole, isInstanceAdmin}: {wo
 			<SidebarGroupLabel>Platform</SidebarGroupLabel>
 			<SidebarMenu>
 				{navPlatformItems.map((item) => {
-					const isActive =
-						pathname === item.url || pathname?.startsWith(item.url);
+					const isActive = pathname?.includes(item.url);
 
 					return (
 						<Collapsible key={item.title} asChild defaultOpen={isActive}>

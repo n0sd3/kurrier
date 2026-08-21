@@ -7,8 +7,9 @@ import {PutObjectCommand} from "@aws-sdk/client-s3";
 import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
 import {s3} from "@/lib/create-s3-client";
 import {storageObjectUrl} from "@/lib/storage-object-access";
-import {db, messages} from "@db";
+import {messages} from "@db";
 import {eq} from "drizzle-orm";
+import {rlsClient} from "@/lib/actions/clients";
 
 export async function createAttachmentUploadUrl(input: {
     fileName: string;
@@ -52,7 +53,14 @@ export async function createAttachmentDownloadUrl(path: string) {
 }
 
 export async function getRawMessageDownloadUrl(messageId: string) {
-    const [message] = await db.select().from(messages).where(eq(messages.id, messageId))
+    const rls = await rlsClient();
+    const [message] = await rls((tx) =>
+        tx
+            .select()
+            .from(messages)
+            .where(eq(messages.id, messageId))
+            .limit(1),
+    );
     if (!message?.rawStorageKey) return { url: null };
 
     return { url: storageObjectUrl(message.rawStorageKey) };

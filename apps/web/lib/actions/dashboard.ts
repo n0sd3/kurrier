@@ -20,12 +20,15 @@ import {
 } from "@db";
 import {
 	apiScopeList,
+	CustomEmailProviderCredentialsSchema,
 	defaultImapQuota,
 	DomainIdentityFormSchema,
 	FormState,
 	getPublicEnv,
 	handleAction,
 	MailboxKindDisplay,
+	materializeCustomEmailProvider,
+	parseCustomEmailProviders,
 	ProviderAccountFormSchema,
 	Providers,
 	SmtpAccountFormSchema,
@@ -57,6 +60,7 @@ import {
 import {workspaceIdentityMembers} from "@db";
 import {s3} from "@/lib/create-s3-client";
 import {CreateBucketCommand} from "@aws-sdk/client-s3";
+import { SITE_FEATURES } from "@/lib/site-features";
 
 // Must mirror the real route pattern, including the [locale] segment and the
 // "platform" prefix, or revalidatePath silently matches nothing.
@@ -85,6 +89,17 @@ export async function upsertProviderAccount(
 		const parsed = ProviderAccountFormSchema.parse(data);
 
 		const rls = await rlsClient();
+		if (!SITE_FEATURES.drive) {
+			const [provider] = await rls((tx) =>
+				tx
+					.select({ type: providers.type })
+					.from(providers)
+					.where(eq(providers.id, String(parsed.providerId))),
+			);
+			if (provider?.type === "s3") {
+				throw new Error("Drive is disabled");
+			}
+		}
 		const [providerSecret] = await rls((tx) =>
 			tx
 				.select()
@@ -190,6 +205,53 @@ export async function upsertSMTPAccount(
 		return {
 			success: true,
 			message: "Done",
+		};
+	});
+}
+
+export async function createCustomProviderSMTPAccount(
+	_prev: FormState,
+	formData: FormData,
+): Promise<FormState> {
+	return handleAction(async () => {
+		const credentials = CustomEmailProviderCredentialsSchema.parse(
+			decode(formData),
+		);
+		const preset = parseCustomEmailProviders(
+			process.env.CUSTOM_EMAIL_PROVIDERS,
+		).find((provider) => provider.id === credentials.presetId);
+
+		if (!preset) {
+			throw new Error(
+				"This email provider is no longer available. Refresh the page and try again.",
+			);
+		}
+
+		const smtpConfig = materializeCustomEmailProvider(preset, credentials);
+		const session = await currentSession();
+		const workspaceId = await getWorkspaceId();
+		const rls = await rlsClient();
+
+		const secretMeta = await createSecret(session, workspaceId, {
+			name: smtpConfig.ulid,
+			value: JSON.stringify(smtpConfig),
+		});
+		const [smtpAccount] = await rls((tx) =>
+			tx.insert(smtpAccounts).values({}).returning(),
+		);
+
+		await rls((tx) =>
+			tx.insert(smtpAccountSecrets).values({
+				accountId: smtpAccount.id,
+				secretId: secretMeta.id,
+			}),
+		);
+
+		revalidatePath(DASHBOARD_PATH);
+
+		return {
+			success: true,
+			message: `Added ${preset.name} account`,
 		};
 	});
 }
@@ -620,7 +682,7 @@ export async function addNewEmailIdentity(
 		const rls = await rlsClient();
 		const data = decode(formData) as Record<string, any>;
 
-		const sharedWithWorkspace = data.shared === "on";
+		const sharedWithWorkspace = true
 
 		if (!sharedWithWorkspace) {
 			const workspaceMembers = data?.workspaceMembers as string[] | undefined;
@@ -1421,6 +1483,10 @@ export const regenerateDavPassword = async () => {
 
 export async function addNewVolume(_prev: FormState, formData: FormData) {
 	return handleAction(async () => {
+		if (!SITE_FEATURES.drive) {
+			throw new Error("Drive is disabled");
+		}
+
 		const rls = await rlsClient();
 		const data = decode(formData);
 		const user = await isSignedIn();
@@ -1628,5 +1694,198 @@ export const verifyGoogleAccount = async (googleAccountId: string) => {
 				} as VerifyResult & { status: "revoked" },
 			};
 		}
+	});
+};
+
+
+export async function createInboundIdentity(
+	_prev: FormState,
+	formData: FormData,
+): Promise<FormState> {
+	return handleAction(async () => {
+		const data = decode(formData);
+
+		const label = String(data.label || "").trim();
+
+		if (!label) {
+			return {
+				success: false,
+				error: "Identity label is required",
+			};
+		}
+
+		const slug = slugify(label);
+
+		if (!slug) {
+			return {
+				success: false,
+				error: "Invalid identity label",
+			};
+		}
+
+		const value = `${slug}@inbound.kurrier`;
+
+		const workspaceId = await getWorkspaceId();
+		const user = await isSignedIn();
+		const userId = String(user?.id || "");
+
+		if (!userId) {
+			return {
+				success: false,
+				error: "Not signed in",
+			};
+		}
+
+		const rls = await rlsClient();
+
+		const [inboundProvider] = await rls((tx) =>
+			tx
+				.select()
+				.from(providers)
+				.where(
+					and(
+						eq(providers.workspaceId, workspaceId),
+						eq(providers.ownerId, userId),
+						eq(providers.type, "inbound"),
+					),
+				)
+				.limit(1),
+		);
+
+		if (!inboundProvider) {
+			return {
+				success: false,
+				error: "Kurrier Inbound provider is not initialized",
+			};
+		}
+
+		const [existingIdentity] = await rls((tx) =>
+			tx
+				.select({ id: identities.id })
+				.from(identities)
+				.where(
+					and(
+						eq(identities.workspaceId, workspaceId),
+						eq(identities.kind, "email"),
+						eq(identities.value, value),
+					),
+				)
+				.limit(1),
+		);
+
+		if (existingIdentity) {
+			return {
+				success: false,
+				error: `Inbound identity ${value} already exists`,
+			};
+		}
+
+		const identityData = IdentityInsertSchema.parse({
+			workspaceId,
+			ownerId: userId,
+			kind: "email",
+			value,
+			displayName: label,
+			providerId: inboundProvider.id,
+			status: "verified",
+			sharedWithWorkspace: true,
+			metaData: {
+				provider: "inbound",
+			},
+		});
+
+		const [identity] = await rls((tx) =>
+			tx
+				.insert(identities)
+				.values(identityData as IdentityCreate)
+				.returning(),
+		);
+		await assignIdentityToAllWorkspaceMembers(identity);
+		await initializeMailboxes(identity, userId, workspaceId);
+
+		revalidatePath(DASHBOARD_PATH);
+		return {
+			success: true,
+			message: `Created ${value}`,
+		};
+	});
+}
+
+
+export const fetchInboundIdentities = async () => {
+
+	const rls = await rlsClient();
+	return rls((tx) =>
+		tx
+			.select({
+				identity: identities,
+				provider: providers,
+			})
+			.from(identities)
+			.innerJoin(providers, eq(identities.providerId, providers.id))
+			.where(
+				and(
+					eq(identities.kind, "email"),
+					eq(providers.type, "inbound"),
+				),
+			)
+			.orderBy(desc(identities.createdAt)),
+	);
+
+};
+
+export type FetchInboundIdentitiesResult = Awaited<ReturnType<typeof fetchInboundIdentities>>;
+export type FetchInboundIdentitiesResultRow = FetchInboundIdentitiesResult[number];
+
+
+export const deleteInboundIdentity = async (
+	identityId: string,
+): Promise<FormState> => {
+	return handleAction(async () => {
+		const rls = await rlsClient();
+		const workspaceId = await getWorkspaceId();
+
+		const [identity] = await rls((tx) =>
+			tx
+				.select({
+					identity: identities,
+					provider: providers,
+				})
+				.from(identities)
+				.innerJoin(providers, eq(identities.providerId, providers.id))
+				.where(
+					and(
+						eq(identities.id, identityId),
+						eq(providers.type, "inbound"),
+					),
+				)
+				.limit(1),
+		);
+
+		if (!identity) {
+			return {
+				success: false,
+				error: "Inbound identity not found",
+			};
+		}
+
+		await enqueueIdentityCleanup(
+			identity.identity.id,
+			workspaceId,
+		);
+
+		await rls((tx) =>
+			tx
+				.delete(identities)
+				.where(eq(identities.id, identity.identity.id)),
+		);
+
+		revalidatePath(DASHBOARD_PATH);
+		revalidatePath("/w/[workspaceId]/dashboard/platform/identities");
+
+		return {
+			success: true,
+			message: "Inbound identity deleted",
+		};
 	});
 };

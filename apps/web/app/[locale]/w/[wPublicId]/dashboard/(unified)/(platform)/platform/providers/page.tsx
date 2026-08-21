@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Container } from "@/components/common/containers";
-import { PROVIDERS } from "@schema";
+import { parseCustomEmailProviders, PROVIDERS } from "@schema";
 import SMTPCard from "@/components/dashboard/providers/smtp-card";
-import {fetchDecryptedSecrets, fetchGoogleAccounts, syncProviders} from "@/lib/actions/dashboard";
+import {fetchDecryptedSecrets, fetchGoogleAccounts, syncProviders, fetchInboundIdentities} from "@/lib/actions/dashboard";
 import ProviderCardShell from "@/components/dashboard/providers/provider-card-shell";
 import { smtpAccountSecrets } from "@db";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import {fetchWorkspace} from "@/lib/actions/workspace";
 import GoogleCard from "@/components/dashboard/providers/google-card";
 import ICloudCard from "@/components/dashboard/providers/icloud-card";
+import InboundCard from "@/components/dashboard/providers/inbound-card";
+import CustomEmailProviderCard from "@/components/dashboard/providers/custom-email-provider-card";
 
 export default async function ProvidersPage() {
 	const userProviders = await syncProviders();
@@ -22,6 +24,10 @@ export default async function ProvidersPage() {
 
 	const googleAccounts = await fetchGoogleAccounts();
 	const workspaceId = await fetchWorkspace().then((workspace) => workspace.id);
+	const inboundIdentities = await fetchInboundIdentities();
+	const customEmailProviders = parseCustomEmailProviders(
+		process.env.CUSTOM_EMAIL_PROVIDERS,
+	);
 
 	return (
 		<>
@@ -47,6 +53,27 @@ export default async function ProvidersPage() {
 						code ensuring full control and privacy.
 					</p>
 
+					{customEmailProviders.length > 0 ? (
+						<section className="mb-8">
+							<div className="mb-4">
+								<h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+									Configured email providers
+								</h2>
+								<p className="mt-1 text-xs text-muted-foreground">
+									Server settings are managed by your administrator.
+								</p>
+							</div>
+							<div className="grid gap-6">
+								{customEmailProviders.map((provider) => (
+									<CustomEmailProviderCard
+										key={provider.id}
+										provider={provider}
+									/>
+								))}
+							</div>
+						</section>
+					) : null}
+
 					<div className="grid gap-6 lg:grid-cols-2">
 						<GoogleCard googleAccounts={googleAccounts} />
 						<ICloudCard smtpSecrets={smtpSecrets} />
@@ -62,6 +89,7 @@ export default async function ProvidersPage() {
 							/>
 						))}
 						<SMTPCard smtpSecrets={smtpSecrets} />
+						<InboundCard inboundIdentities={inboundIdentities} />
 					</div>
 				</Container>
 			</div>
