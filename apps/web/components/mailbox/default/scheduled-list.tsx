@@ -1,10 +1,11 @@
 "use client";
 
+import dayjs from "dayjs";
+import { Clock, Paperclip, Trash } from "lucide-react";
 import * as React from "react";
 import { useMemo } from "react";
-import { Clock, Paperclip, Trash } from "lucide-react";
-import dayjs from "dayjs";
 import { ReusableFormButton } from "@/components/common/reusable-form-button";
+import { useOptionalDictionary } from "@/components/providers/dictionary-provider";
 import { deleteScheduledDraft } from "@/lib/actions/mailbox";
 
 type DraftMessageRow = {
@@ -29,7 +30,10 @@ type ScheduledListProps = {
 	onCancel?: (draft: DraftMessageRow) => void;
 };
 
-function formatDateLabel(input?: string | number | Date) {
+function formatDateLabel(
+	input: string | number | Date | undefined,
+	locale?: string,
+) {
 	if (!input) return "";
 
 	const d = dayjs(input);
@@ -38,14 +42,16 @@ function formatDateLabel(input?: string | number | Date) {
 	const now = dayjs();
 
 	if (d.isSame(now, "day")) {
-		return d.format("h:mm A");
+		return new Intl.DateTimeFormat(locale ?? "en", {
+			hour: "2-digit",
+			minute: "2-digit",
+		}).format(d.toDate());
 	}
 
-	if (d.isSame(now, "year")) {
-		return d.format("MMM D, h:mm A");
-	}
-
-	return d.format("MMM D, YYYY, h:mm A");
+	return new Intl.DateTimeFormat(locale ?? "en", {
+		dateStyle: d.isSame(now, "year") ? "medium" : "long",
+		timeStyle: "short",
+	}).format(d.toDate());
 }
 
 function getToLabel(payload: Record<string, any>) {
@@ -83,8 +89,10 @@ function hasAttachments(payload: Record<string, any>) {
 }
 
 function ScheduledListItem({ draft }: { draft: DraftMessageRow }) {
+	const dict = useOptionalDictionary();
 	const scheduledLabel = formatDateLabel(
 		draft.scheduledAt ?? draft.updatedAt ?? draft.createdAt ?? Date.now(),
+		dict?.locale,
 	);
 	const toLabel = getToLabel(draft.payload);
 	const subject = getSubject(draft.payload);
@@ -139,6 +147,7 @@ export default function ScheduledList({
 	title,
 	onCancel,
 }: ScheduledListProps) {
+	const dict = useOptionalDictionary();
 	const scheduledDrafts = useMemo(() => {
 		return drafts
 			.filter((d) => String(d.status) === "scheduled")
@@ -152,7 +161,7 @@ export default function ScheduledList({
 	if (scheduledDrafts.length === 0) {
 		return (
 			<div className="p-4 text-center text-base text-muted-foreground">
-				No scheduled messages
+				{dict?.mailbox?.noScheduledMessages ?? "No scheduled messages"}
 			</div>
 		);
 	}

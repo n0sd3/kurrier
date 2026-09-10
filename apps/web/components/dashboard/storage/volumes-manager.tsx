@@ -1,17 +1,17 @@
 "use client";
 
-import * as React from "react";
-import { Container } from "@/components/common/containers";
-import { Card, CardContent } from "@/components/ui/card";
+import type { DriveVolumeEntity } from "@db";
 import { Button } from "@mantine/core";
-import { HardDrive, Plus, CheckCircle, Clock } from "lucide-react";
-import type { SyncProvidersRow } from "@/lib/actions/dashboard";
-import { DriveVolumeEntity } from "@db";
-import dayjs from "dayjs";
-import Link from "next/link";
-import { IconDatabaseShare } from "@tabler/icons-react";
 import { modals } from "@mantine/modals";
+import { IconDatabaseShare } from "@tabler/icons-react";
+import { CheckCircle, Clock, HardDrive, Plus } from "lucide-react";
+import Link from "next/link";
+import type * as React from "react";
+import { Container } from "@/components/common/containers";
 import AddVolumeForm from "@/components/dashboard/storage/add-volume-form";
+import { useOptionalDictionary } from "@/components/providers/dictionary-provider";
+import { Card, CardContent } from "@/components/ui/card";
+import type { SyncProvidersRow } from "@/lib/actions/dashboard";
 
 function SectionHeader({
 	title,
@@ -25,8 +25,8 @@ function SectionHeader({
 	action?: React.ReactNode;
 }) {
 	return (
-		<div className="flex items-start justify-between">
-			<div>
+		<div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+			<div className="min-w-0">
 				<div className="flex items-center gap-2">
 					<h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
 						{title}
@@ -39,28 +39,39 @@ function SectionHeader({
 					<p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
 				) : null}
 			</div>
-			{action ? <div className="ml-4">{action}</div> : null}
+			{action ? <div className="w-full sm:ml-4 sm:w-auto">{action}</div> : null}
 		</div>
 	);
 }
 
 function EmptyState() {
+	const dict = useOptionalDictionary();
 	return (
 		<div className="rounded-lg border border-dashed p-6 text-center">
 			<p className="text-sm text-muted-foreground">
-				No volumes yet — create your first one to get started.
+				{dict?.platform?.noVolumesYet ??
+					"No volumes yet — create your first one to get started."}
 			</p>
 		</div>
 	);
 }
 
-function VolumeStatusPill({ verified, provisioned }: { verified: boolean; provisioned: boolean }) {
+function VolumeStatusPill({
+	verified,
+	provisioned,
+}: {
+	verified: boolean;
+	provisioned: boolean;
+}) {
+	const dict = useOptionalDictionary();
 
 	if (provisioned) {
-		return <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-			<CheckCircle className="size-3.5" />
-			Provider verified
-		</span>
+		return (
+			<span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+				<CheckCircle className="size-3.5" />
+				{dict?.platform?.providerVerified ?? "Provider verified"}
+			</span>
+		);
 	}
 
 	return (
@@ -70,7 +81,9 @@ function VolumeStatusPill({ verified, provisioned }: { verified: boolean; provis
 			) : (
 				<Clock className="size-3.5" />
 			)}
-			{verified ? "Provider verified" : "Provider not verified"}
+			{verified
+				? (dict?.platform?.providerVerified ?? "Provider verified")
+				: (dict?.platform?.providerNotVerified ?? "Provider not verified")}
 		</span>
 	);
 }
@@ -78,31 +91,28 @@ function VolumeStatusPill({ verified, provisioned }: { verified: boolean; provis
 export default function VolumesManager({
 	userProviders,
 	volumes,
-   	workspacePublicId,
-   	provisioned,
-	providerSelectOptions,
+	workspacePublicId,
+	provisioned,
 }: {
 	userProviders: SyncProvidersRow[];
 	volumes: DriveVolumeEntity[];
 	workspacePublicId: string;
-	provisioned: boolean
-	providerSelectOptions: { label: string; value: string }[];
+	provisioned: boolean;
 }) {
+	const dict = useOptionalDictionary();
 	const openAddVolumeForm = async () => {
 		const openModalId = modals.open({
 			title: (
-				<div className="font-semibold text-brand-foreground">Add Volume</div>
+				<div className="font-semibold text-brand-foreground">
+					{dict?.platform?.addVolume ?? "Add Volume"}
+				</div>
 			),
 			closeOnEscape: false,
 			closeOnClickOutside: false,
 			size: "lg",
 			children: (
 				<div className="p-2">
-					<AddVolumeForm
-						userProviders={userProviders}
-						providerSelectOptions={providerSelectOptions}
-						onCompleted={() => modals.close(openModalId)}
-					/>
+					<AddVolumeForm onCompleted={() => modals.close(openModalId)} />
 				</div>
 			),
 		});
@@ -111,30 +121,38 @@ export default function VolumesManager({
 	return (
 		<Container variant="wide">
 			<div className="flex items-center justify-between my-4">
-				<h1 className="text-xl font-bold text-foreground">Storage</h1>
+				<h1 className="text-xl font-bold text-foreground">
+					{dict?.platform?.storage ?? "Storage"}
+				</h1>
 			</div>
 
 			<p className="max-w-prose text-sm text-muted-foreground my-6">
-				Configure storage providers and manage volumes that appear in Drive.
+				{dict?.platform?.configureStorageProvidersDescription ??
+					"Configure storage providers and manage volumes that appear in Drive."}
 			</p>
 
 			<Card className="shadow-none mb-48">
 				<CardContent className="space-y-10">
 					<div className="space-y-3">
 						<SectionHeader
-							title="Volumes"
+							title={dict?.platform?.volumes ?? "Volumes"}
 							count={volumes.length}
-							subtitle="Volumes are named roots (local paths or buckets) that users can browse in Drive."
+							subtitle={
+								dict?.platform?.volumesSubtitle ??
+								"Volumes are named roots (local paths or buckets) that users can browse in Drive."
+							}
 							action={
 								<Button
 									onClick={openAddVolumeForm}
 									variant="outline"
 									size="sm"
 									className="gap-2"
-									aria-label="Create volume"
+									aria-label={
+										dict?.platform?.createVolumeAriaLabel ?? "Create volume"
+									}
 								>
 									<Plus className="size-4" />
-									Create Volume
+									{dict?.platform?.createVolume ?? "Create Volume"}
 								</Button>
 							}
 						/>
@@ -150,7 +168,9 @@ export default function VolumesManager({
 									const verification = userProviders.find(
 										(provider) => provider.id === v.providerId,
 									)?.metaData?.verification;
-									const providerType = volumeProvider?.type ?? "local";
+									const providerType =
+										volumeProvider?.type ??
+										(v.kind === "cloud" ? "s3" : "local");
 									const isLocal = v.kind === "local";
 									return (
 										<div
@@ -175,8 +195,14 @@ export default function VolumesManager({
 															/>
 															{v.createdAt ? (
 																<span className="text-xs text-muted-foreground">
-																	Created:{" "}
-																	{dayjs(v.createdAt).format("MMM D, YYYY")}
+																	{dict?.platform?.createdColonPrefix ??
+																		"Created:"}{" "}
+																	{new Intl.DateTimeFormat(
+																		dict?.locale ?? "en",
+																		{
+																			dateStyle: "medium",
+																		},
+																	).format(new Date(v.createdAt))}
 																</span>
 															) : null}
 														</div>
@@ -192,7 +218,7 @@ export default function VolumesManager({
 													href={`/w/${workspacePublicId}/dashboard/drive/volumes/${v.publicId}`}
 													component={Link}
 												>
-													View
+													{dict?.platform?.view ?? "View"}
 												</Button>
 											</div>
 										</div>

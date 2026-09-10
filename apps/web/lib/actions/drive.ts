@@ -20,13 +20,13 @@ import {
 } from "@aws-sdk/client-s3";
 import {s3} from "@/lib/create-s3-client";
 import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
-import { SITE_FEATURES } from "@/lib/site-features";
+import { DISTRIBUTION_CONFIG } from "@distribution/config";
 
 
 const trimSlashes = (s: string) => s.replace(/^\/+|\/+$/g, "");
 
 function assertDriveEnabled() {
-	if (!SITE_FEATURES.drive) {
+	if (!DISTRIBUTION_CONFIG.features.drive) {
 		throw new Error("Drive is disabled");
 	}
 }
@@ -112,7 +112,7 @@ export async function addNewFolder(
 			typeof decodedForm.name === "string" ? decodedForm.name.trim() : "";
 
 		if (!name) {
-			return { success: false, error: "Folder name is required" };
+			return { success: false, error: "drive.folderNameRequired" };
 		}
 
 		const withinPath = await normalizeWithinPathString(decodedForm.path);
@@ -123,7 +123,7 @@ export async function addNewFolder(
 				: undefined;
 
 		if (!publicId) {
-			return { success: false, error: "Missing volume" };
+			return { success: false, error: "drive.missingVolume" };
 		}
 
 		const rls = await rlsClient();
@@ -139,17 +139,17 @@ export async function addNewFolder(
 		});
 
 		if (!volume) {
-			return { success: false, error: "Volume not found" };
+			return { success: false, error: "drive.volumeNotFound" };
 		}
 
 		if (volume.kind !== "cloud") {
-			return { success: false, error: "Invalid volume type" };
+			return { success: false, error: "drive.invalidVolumeType" };
 		}
 
 		const bucket = String(volume.metaData?.bucket || "").trim();
 
 		if (!bucket) {
-			return { success: false, error: "Cloud volume missing bucket" };
+			return { success: false, error: "drive.cloudVolumeMissingBucket" };
 		}
 
 		const volumePrefix = getVolumePrefix(volume);
@@ -220,11 +220,14 @@ export async function addNewFolder(
 				});
 		});
 
-		revalidatePath("/[locale]/w/[wPublicId]/dashboard/drive", "page");
+		revalidatePath(
+			"/[locale]/w/[wPublicId]/dashboard/drive/[[...segments]]",
+			"page",
+		);
 
 		return {
 			success: true,
-			message: "Folder created",
+			message: "drive.folderCreated",
 		};
 	});
 }
@@ -233,7 +236,10 @@ export async function addNewFolder(
 
 export const refreshViewAfterUpload = async () => {
 	assertDriveEnabled();
-	return revalidatePath("/[locale]/w/[wPublicId]/dashboard/drive", "page");
+	return revalidatePath(
+		"/[locale]/w/[wPublicId]/dashboard/drive/[[...segments]]",
+		"page",
+	);
 };
 
 function getVolumePrefix(volume: DriveVolumeEntity) {
@@ -513,11 +519,14 @@ export async function deleteDriveEntry(entryId: string) {
 					),
 			);
 
-			revalidatePath("/[locale]/w/[wPublicId]/dashboard/drive", "page");
+			revalidatePath(
+				"/[locale]/w/[wPublicId]/dashboard/drive/[[...segments]]",
+				"page",
+			);
 
 			return {
 				success: true,
-				message: "Deleted folder",
+				message: "drive.deletedFolder",
 			};
 		}
 
@@ -539,11 +548,14 @@ export async function deleteDriveEntry(entryId: string) {
 				),
 		);
 
-		revalidatePath("/[locale]/w/[wPublicId]/dashboard/drive", "page");
+		revalidatePath(
+			"/[locale]/w/[wPublicId]/dashboard/drive/[[...segments]]",
+			"page",
+		);
 
 		return {
 			success: true,
-			message: "Deleted file",
+			message: "drive.deletedFile",
 		};
 	});
 }

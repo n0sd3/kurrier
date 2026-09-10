@@ -247,6 +247,7 @@ export async function applyRuleActions(
                         threadId: thread.id,
                         mailboxId: mailbox.id,
                         ownerId: mailbox.ownerId,
+                        workspaceId: thread.workspaceId,
                         labelId,
                     })
                     .onConflictDoNothing();

@@ -12,6 +12,7 @@ import {
 	yesCalendarInvite,
 } from "@/lib/actions/calendar";
 import { getDayjsTz } from "@common/day-js-extended";
+import { useOptionalI18n } from "@/components/providers/dictionary-provider";
 
 type UiGuestStatus =
 	| "accepted"
@@ -21,6 +22,9 @@ type UiGuestStatus =
 	| null;
 
 function ExternalEventView() {
+	const i18n = useOptionalI18n();
+	const dict = i18n?.dict;
+	const format = i18n?.format;
 	const { state } = useDynamicContext<CalendarState>();
 	const editEvent = state.activePopoverEditEvent ?? null;
 	const editEventId = editEvent?.id ?? null;
@@ -102,9 +106,12 @@ function ExternalEventView() {
 
 	const dateLabel =
 		start && end
-			? `${start.format("ddd, D MMM")} · ${start.format(
-					"hh:mm A",
-				)} – ${end.format("hh:mm A")} (${start.format("z")})`
+			? `${format?.date(start.toDate(), {
+						weekday: "short",
+						day: "numeric",
+						month: "short",
+						timeZone: state.defaultCalendar.timezone,
+					}) ?? ""} · ${format?.time(start.toDate(), { timeZone: state.defaultCalendar.timezone }) ?? ""} – ${format?.time(end.toDate(), { timeZone: state.defaultCalendar.timezone }) ?? ""} (${start.format("z")})`
 			: "";
 
 	const organizerLabel =
@@ -117,14 +124,14 @@ function ExternalEventView() {
 			<div className="flex items-start justify-between gap-2">
 				<div className="flex flex-col gap-1">
 					<div className="text-sm font-semibold leading-snug">
-						{editEvent?.title || "(no title)"}
+						{editEvent?.title || (dict?.calendar?.noTitle ?? "(no title)")}
 					</div>
 					{dateLabel && (
 						<div className="text-xs text-muted-foreground">{dateLabel}</div>
 					)}
 				</div>
 				<span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700">
-					Invitation
+					{dict?.calendar?.invitation ?? "Invitation"}
 				</span>
 			</div>
 
@@ -136,7 +143,7 @@ function ExternalEventView() {
 			>
 				<ReusableFormButton
 					action={yesCalendarInvite}
-					label="Accept"
+					label={dict?.calendar?.accept ?? "Accept"}
 					buttonProps={{
 						leftSection: <CheckCircle size={16} />,
 						size: "compact-xs",
@@ -160,7 +167,7 @@ function ExternalEventView() {
 
 				<ReusableFormButton
 					action={maybeCalendarInvite}
-					label="Maybe"
+					label={dict?.calendar?.maybe ?? "Maybe"}
 					buttonProps={{
 						leftSection: <CircleDashed size={16} />,
 						size: "compact-xs",
@@ -183,7 +190,7 @@ function ExternalEventView() {
 				</ReusableFormButton>
 				<ReusableFormButton
 					action={noCalendarInvite}
-					label="Decline"
+					label={dict?.calendar?.decline ?? "Decline"}
 					buttonProps={{
 						leftSection: <CircleX size={16} />,
 						size: "compact-xs",
@@ -209,7 +216,7 @@ function ExternalEventView() {
 			{organizerLabel && (
 				<div className="mt-3 rounded-xl bg-muted/70 px-3 py-2 text-xs">
 					<div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-						Organizer
+						{dict?.calendar?.organizer ?? "Organizer"}
 					</div>
 					<div className="mt-0.5 font-medium">{organizerLabel}</div>
 				</div>
@@ -218,7 +225,7 @@ function ExternalEventView() {
 			{editEvent?.location && (
 				<div className="mt-2 rounded-xl bg-muted/70 px-3 py-2 text-xs">
 					<div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-						Location
+						{dict?.calendar?.location ?? "Location"}
 					</div>
 					<div className="mt-0.5 font-medium">{editEvent.location}</div>
 				</div>
@@ -227,7 +234,7 @@ function ExternalEventView() {
 			{editEvent?.description && editEvent.description.trim().length > 0 && (
 				<div className="mt-2 rounded-xl bg-muted/70 px-3 py-2 text-xs">
 					<div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-						Description
+						{dict?.calendar?.description ?? "Description"}
 					</div>
 					<div className="mt-0.5 whitespace-pre-wrap break-words text-[13px]">
 						{editEvent.description}
@@ -238,7 +245,7 @@ function ExternalEventView() {
 			{guests.length > 0 && (
 				<div className="mt-2 rounded-xl bg-muted/40 px-3 py-2">
 					<div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-						Guests
+						{dict?.calendar?.guests ?? "Guests"}
 					</div>
 					<GuestList guests={guests} />
 				</div>

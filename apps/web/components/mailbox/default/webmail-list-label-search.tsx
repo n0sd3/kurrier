@@ -1,102 +1,101 @@
 "use client";
-import * as React from "react";
-import { MailboxEntity, MailboxSyncEntity } from "@db";
-import { PublicConfig } from "@schema";
-import {
-    FetchIdentityMailboxListResult, FetchMailboxResult,
-    FetchMailboxThreadsResult,
-} from "@/lib/actions/mailbox";
-import {
-    FetchLabelsResult,
-    FetchMailboxThreadLabelsResult,
-} from "@/lib/actions/labels";
+import type { MailboxEntity, MailboxSyncEntity } from "@db";
+import type { PublicConfig } from "@schema";
+import { useParams, useRouter } from "next/navigation";
 import MailListHeader from "@/components/mailbox/default/mail-list-header";
 import WebmailListItem from "@/components/mailbox/default/webmail-list-item";
 import { DynamicContextProvider } from "@/hooks/use-dynamic-context";
 import { PendingThreadActionsProvider } from "@/hooks/use-pending-thread-actions";
-import { useParams, useRouter } from "next/navigation";
+import type {
+	FetchLabelsResult,
+	FetchMailboxThreadLabelsResult,
+} from "@/lib/actions/labels";
+import type {
+	FetchIdentityMailboxListResult,
+	FetchMailboxThreadsResult,
+} from "@/lib/actions/mailbox";
 import type { MailboxContextMap } from "@/lib/unified-mailbox";
 import type { MailboxKind } from "@schema";
 
 type WebListProps = {
-    mailboxThreads: FetchMailboxThreadsResult;
-    publicConfig: PublicConfig;
-    activeMailbox?: MailboxEntity | null;
-    identityMailboxes: FetchIdentityMailboxListResult;
-    globalLabels: FetchLabelsResult;
-    labelsByThreadId: FetchMailboxThreadLabelsResult;
-    workspacePublicId?: string;
-    mailboxSync?: MailboxSyncEntity;
-    mailboxById: MailboxContextMap;
-    emptyLabel?: string;
-    isUnified?: boolean;
-    viewKind?: MailboxKind;
+	mailboxThreads: FetchMailboxThreadsResult;
+	publicConfig: PublicConfig;
+	activeMailbox?: MailboxEntity | null;
+	identityMailboxes: FetchIdentityMailboxListResult;
+	globalLabels: FetchLabelsResult;
+	labelsByThreadId: FetchMailboxThreadLabelsResult;
+	workspacePublicId?: string;
+	mailboxSync?: MailboxSyncEntity;
+	mailboxById: MailboxContextMap;
+	emptyLabel?: string;
+	isUnified?: boolean;
+	viewKind?: MailboxKind;
 };
 
 export default function WebmailListLabelSearch({
-                                        mailboxThreads,
-                                        mailboxSync,
-                                        activeMailbox,
-                                        publicConfig,
-                                        identityMailboxes,
-                                        globalLabels,
-                                        workspacePublicId,
-                                        labelsByThreadId,
-                                        mailboxById,
-                                        emptyLabel,
-                                        isUnified,
-                                        viewKind,
-                                    }: WebListProps) {
-    const params = useParams();
-    const router = useRouter();
+	mailboxThreads,
+	mailboxSync,
+	activeMailbox,
+	publicConfig,
+	identityMailboxes,
+	globalLabels,
+	workspacePublicId,
+	labelsByThreadId,
+	mailboxById,
+	emptyLabel,
+	isUnified,
+	viewKind,
+}: WebListProps) {
+	const params = useParams();
+	const router = useRouter();
 
-    return (
-        <div className={params?.threadId ? "hidden" : ""}>
-            <DynamicContextProvider
-                initialState={{
-                    selectedThreadIds: new Set(),
-                }}
-            >
-                {mailboxThreads.length === 0 ? (
-                    <div className="p-4 text-center text-base text-muted-foreground">
-                        No messages in{" "}
-                        <span className={"lowercase"}>
-                            {emptyLabel ?? activeMailbox?.name ?? "this mailbox"}
-                        </span>
-                    </div>
-                ) : (
-                    <div className="overflow-hidden rounded-xl border bg-background/50 z-[50]">
-                        <MailListHeader
-                            mailboxThreads={mailboxThreads}
-                            mailboxSync={mailboxSync ?? undefined}
-                            publicConfig={publicConfig}
-                            identityMailboxes={identityMailboxes}
-                            activeMailbox={activeMailbox}
-                            mailboxById={mailboxById}
-                            isUnified={isUnified}
-                            viewKind={viewKind}
-                        />
+	return (
+		<div className={params?.threadId ? "hidden" : ""}>
+			<DynamicContextProvider
+				initialState={{
+					selectedThreadIds: new Set(),
+				}}
+			>
+				{mailboxThreads.length === 0 ? (
+					<div className="p-4 text-center text-base text-muted-foreground">
+						No messages in{" "}
+						<span className={"lowercase"}>
+							{emptyLabel ?? activeMailbox?.name ?? "this mailbox"}
+						</span>
+					</div>
+				) : (
+					<div className="min-w-0 overflow-hidden rounded-xl border bg-background/50 z-[50]">
+						<MailListHeader
+							mailboxThreads={mailboxThreads}
+							mailboxSync={mailboxSync ?? undefined}
+							publicConfig={publicConfig}
+							identityMailboxes={identityMailboxes}
+							activeMailbox={activeMailbox}
+							mailboxById={mailboxById}
+							isUnified={isUnified}
+							viewKind={viewKind}
+						/>
 
-                        <PendingThreadActionsProvider onSettled={() => router.refresh()}>
-                        <ul role="list" className="divide-y">
-                            {mailboxThreads.map((mailboxThreadItem) => (
-                                <WebmailListItem
-                                    key={
-                                        mailboxThreadItem.threadId + mailboxThreadItem.mailboxId
-                                    }
-                                    mailboxThreadItem={mailboxThreadItem}
-                                    workspacePublicId={workspacePublicId}
-                                    mailboxById={mailboxById}
-                                    globalLabels={globalLabels}
-                                    labelsByThreadId={labelsByThreadId}
-                                    showAccount={isUnified}
-                                />
-                            ))}
-                        </ul>
-                        </PendingThreadActionsProvider>
-                    </div>
-                )}
-            </DynamicContextProvider>
-        </div>
-    );
+						<PendingThreadActionsProvider onSettled={() => router.refresh()}>
+							<ul role="list" className="divide-y">
+								{mailboxThreads.map((mailboxThreadItem) => (
+									<WebmailListItem
+										key={
+											mailboxThreadItem.threadId + mailboxThreadItem.mailboxId
+										}
+										mailboxThreadItem={mailboxThreadItem}
+										workspacePublicId={workspacePublicId}
+										mailboxById={mailboxById}
+										globalLabels={globalLabels}
+										labelsByThreadId={labelsByThreadId}
+										showAccount={isUnified}
+									/>
+								))}
+							</ul>
+						</PendingThreadActionsProvider>
+					</div>
+				)}
+			</DynamicContextProvider>
+		</div>
+	);
 }

@@ -1,11 +1,22 @@
-import React, {Suspense} from "react";
-import {fetchMailbox, fetchThreadMailSubscriptions, fetchWebMailThreadDetail} from "@/lib/actions/mailbox";
-import ThreadItem from "@/components/mailbox/default/thread-item";
+import type { MessageEntity } from "@db";
 import { Divider } from "@mantine/core";
-import {MessageEntity} from "@db";
+import { connection } from "next/server";
+import { Suspense } from "react";
 import Loading from "@/app/loading";
+import ThreadBackLink from "@/components/mailbox/default/thread-back-link";
+import ThreadItem from "@/components/mailbox/default/thread-item";
+import { getWorkspacePublicId } from "@/lib/actions/clients";
+import {
+	fetchLabelsByIdentityPublicId,
+	fetchMailboxThreadLabels,
+} from "@/lib/actions/labels";
+import {
+	fetchMailbox,
+	fetchThreadMailSubscriptions,
+	fetchWebMailThreadDetail,
+} from "@/lib/actions/mailbox";
 
-async function Page({
+async function ThreadContent({
 	params,
 }: {
 	params: Promise<{
@@ -14,45 +25,72 @@ async function Page({
 		threadId: string;
 	}>;
 }) {
+	await connection();
+
 	const { threadId, identityPublicId, mailboxSlug } = await params;
-	const { activeMailbox, mailboxSync } = await fetchMailbox(
+
+	const [{ activeMailbox, mailboxSync }, activeThread, workspacePublicId] =
+		await Promise.all([
+			fetchMailbox(identityPublicId, mailboxSlug),
+			fetchWebMailThreadDetail(threadId),
+			getWorkspacePublicId(),
+		]);
+
+	const { byMessageId } = await fetchThreadMailSubscriptions({
+		ownerId: activeMailbox.ownerId,
+		messages:
+			activeThread?.messages.map((m: MessageEntity) => ({
+				id: m.id,
+				headersJson: m.headersJson,
+			})) ?? [],
+	});
+
+	const allLabels = await fetchLabelsByIdentityPublicId({
 		identityPublicId,
-		mailboxSlug,
-	);
+		scope: "thread",
+	});
 
-	const activeThread = await fetchWebMailThreadDetail(threadId);
-
-    const { byMessageId } = await fetchThreadMailSubscriptions({
-        ownerId: activeMailbox.ownerId,
-        messages:
-            activeThread?.messages.map((m: MessageEntity) => ({
-                id: m.id,
-                headersJson: m.headersJson,
-            })) ?? [],
-    });
+	const labelsByThreadId = await fetchMailboxThreadLabels([{ threadId }]);
 
 	return (
 		<>
-			{activeThread?.messages.map((message, threadIndex) => {
-				return (
-					<Suspense fallback={<Loading />}>
-						<div key={message.id}>
-							<ThreadItem
-								message={message}
-								threadIndex={threadIndex}
-								numberOfMessages={activeThread.messages.length}
-								threadId={threadId}
-								activeMailboxId={activeMailbox.id}
-								markSmtp={!!mailboxSync}
-								identityPublicId={identityPublicId}
-								mailSubscription={byMessageId.get(message.id) ?? null}
-							/>
-							<Divider className={"opacity-50 mb-6"} ml={"xl"} mr={"xl"} />
-						</div>
-					</Suspense>
-				);
-			})}
+			<ThreadBackLink
+				href={`/w/${workspacePublicId}/dashboard/mail/${identityPublicId}/${mailboxSlug}`}
+			/>
+			{activeThread?.messages.map((message, threadIndex) => (
+				<div key={message.id}>
+					<ThreadItem
+						message={message}
+						threadIndex={threadIndex}
+						numberOfMessages={activeThread.messages.length}
+						threadId={threadId}
+						activeMailboxId={activeMailbox.id}
+						markSmtp={!!mailboxSync}
+						identityPublicId={identityPublicId}
+						mailSubscription={byMessageId.get(message.id) ?? null}
+						allLabels={allLabels}
+						labelsByThreadId={labelsByThreadId}
+					/>
+					<Divider className="opacity-50 mb-6" ml="xl" mr="xl" />
+				</div>
+			))}
 		</>
+	);
+}
+
+function Page({
+	params,
+}: {
+	params: Promise<{
+		identityPublicId: string;
+		mailboxSlug: string;
+		threadId: string;
+	}>;
+}) {
+	return (
+		<Suspense fallback={<Loading />}>
+			<ThreadContent params={params} />
+		</Suspense>
 	);
 }
 

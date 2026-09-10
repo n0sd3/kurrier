@@ -1,20 +1,19 @@
 "use client";
-import React from "react";
+import { IconStar, IconStarFilled } from "@tabler/icons-react";
 import { Mail, MailOpen, Paperclip, Trash2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import type {
+	FetchLabelsResult,
+	FetchMailboxThreadLabelsResult,
+} from "@/lib/actions/labels";
 import {
-	FetchMailboxThreadsResult,
+	type FetchMailboxThreadsResult,
 	markAsRead,
 	markAsUnread,
 	moveToTrash,
 	toggleStar,
 } from "@/lib/actions/mailbox";
-import {
-	FetchLabelsResult,
-	FetchMailboxThreadLabelsResult,
-} from "@/lib/actions/labels";
 import { resolveRowMailbox, type MailboxContextMap } from "@/lib/unified-mailbox";
-import { IconStar, IconStarFilled } from "@tabler/icons-react";
 
 type Props = {
 	mailboxThreadItem: FetchMailboxThreadsResult[number];
@@ -24,19 +23,21 @@ type Props = {
 	workspacePublicId?: string;
 	showAccount?: boolean;
 };
+
 import { Temporal } from "@js-temporal/polyfill";
-import { useDynamicContext } from "@/hooks/use-dynamic-context";
 import { toast } from "sonner";
 import LabelRowTag from "@/components/dashboard/labels/label-row-tag";
 import ThreadLabelHoverButtons from "@/components/dashboard/labels/thread-label-hover-buttons";
 import SnoozeMail from "@/components/mailbox/default/snooze-mail";
+import { useOptionalDictionary } from "@/components/providers/dictionary-provider";
+import { useDynamicContext } from "@/hooks/use-dynamic-context";
+import { usePendingThreadActions } from "@/hooks/use-pending-thread-actions";
 import {
 	cleanPreviewText,
 	formatParticipants,
 	primaryParticipant,
 } from "@/lib/mailbox-row";
 import ThreadAvatar from "@/components/mailbox/default/thread-avatar";
-import { usePendingThreadActions } from "@/hooks/use-pending-thread-actions";
 import SwipeableThreadRow, {
 	type SwipeAction,
 } from "@/components/mailbox/default/swipeable-thread-row";
@@ -49,6 +50,8 @@ export default function WebmailListItem({
 	workspacePublicId,
 	showAccount = false,
 }: Props) {
+	const dict = useOptionalDictionary();
+
 	function formatDateLabel(input?: string | number | Date) {
 		const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 		if (!input) return "";
@@ -106,10 +109,13 @@ export default function WebmailListItem({
 		const hours = Math.abs(dur.hours);
 		const minutes = Math.abs(dur.minutes);
 
-		if (days >= 1) return `${days}d ago`;
-		if (hours >= 1) return `${hours}h ago`;
-		if (minutes >= 1) return `${minutes}m ago`;
-		return "just now";
+		if (days >= 1)
+			return `${dict?.mailbox?.agoPrefix ?? ""}${days}${dict?.mailbox?.daysAbbr ?? "d ago"}`;
+		if (hours >= 1)
+			return `${dict?.mailbox?.agoPrefix ?? ""}${hours}${dict?.mailbox?.hoursAbbr ?? "h ago"}`;
+		if (minutes >= 1)
+			return `${dict?.mailbox?.agoPrefix ?? ""}${minutes}${dict?.mailbox?.minutesAbbr ?? "m ago"}`;
+		return dict?.mailbox?.justNow ?? "just now";
 	}
 
 	function getThreadTimeLabel(item: typeof mailboxThreadItem) {
@@ -117,9 +123,9 @@ export default function WebmailListItem({
 
 		if (item.snoozedUntil && new Date(item.snoozedUntil).getTime() > now) {
 			return {
-				text: "Snoozed",
+				text: dict?.mailbox?.snoozed ?? "Snoozed",
 				className: "text-sm text-orange-400",
-				title: `Snoozed until ${new Date(item.snoozedUntil).toLocaleString()}`,
+				title: `${dict?.mailbox?.snoozedUntilPrefix ?? "Snoozed until "}${new Date(item.snoozedUntil).toLocaleString()}`,
 			};
 		}
 
@@ -129,9 +135,9 @@ export default function WebmailListItem({
 
 			if (ageMs >= 0 && ageMs <= showWindowMs) {
 				return {
-					text: `Snoozed back ${formatRelative(item.unsnoozedAt)}`,
+					text: `${dict?.mailbox?.snoozedBackPrefix ?? "Snoozed back "}${formatRelative(item.unsnoozedAt)}`,
 					className: "text-sm text-orange-400",
-					title: `Returned from snooze ${new Date(item.unsnoozedAt).toLocaleString()}`,
+					title: `${dict?.mailbox?.returnedFromSnoozePrefix ?? "Returned from snooze "}${new Date(item.unsnoozedAt).toLocaleString()}`,
 				};
 			}
 		}
@@ -287,7 +293,7 @@ export default function WebmailListItem({
 								type="checkbox"
 								onChange={toggleSelected}
 								checked={isSelected}
-								aria-label={`Select thread ${mailboxThreadItem.subject}`}
+								aria-label={`${dict?.mailbox?.selectThreadPrefix ?? "Select thread "}${mailboxThreadItem.subject}`}
 								className="hidden h-4 w-4 rounded border-muted-foreground/40 md:block"
 								onClick={(e) => e.stopPropagation()}
 							/>
@@ -297,7 +303,7 @@ export default function WebmailListItem({
 					{/* starring is a pointer-era affordance; on phones it only ate width */}
 					<button
 						type="button"
-						aria-label="Star"
+						aria-label={dict?.mailbox?.star ?? "Star"}
 						className="hidden text-muted-foreground hover:text-foreground md:block"
 						onClick={async () => {
 							await toggleStar(
@@ -406,6 +412,7 @@ export default function WebmailListItem({
 
 					{canMarkAsUnread && (
 						<button
+							type="button"
 							onClick={async () => {
 								await markAsUnread(
 									mailboxThreadItem.threadId,
@@ -417,13 +424,14 @@ export default function WebmailListItem({
 								router.refresh();
 							}}
 							className="rounded p-1 hover:bg-muted"
-							title="Mark as unread"
+							title={dict?.mailbox?.markAsUnread ?? "Mark as unread"}
 						>
 							<Mail className="h-4 w-4" />
 						</button>
 					)}
 					{canMarkAsRead && (
 						<button
+							type="button"
 							onClick={async () => {
 								await markAsRead(
 									mailboxThreadItem.threadId,
@@ -435,7 +443,7 @@ export default function WebmailListItem({
 								router.refresh();
 							}}
 							className="rounded p-1 hover:bg-muted"
-							title="Mark as read"
+							title={dict?.mailbox?.markAsRead ?? "Mark as read"}
 						>
 							<MailOpen className="h-4 w-4" />
 						</button>
@@ -447,6 +455,7 @@ export default function WebmailListItem({
 					/>
 
 					<button
+						type="button"
 						onClick={async () => {
 							try {
 								await moveToTrash(
@@ -458,7 +467,7 @@ export default function WebmailListItem({
 									pathname,
 								);
 								router.refresh();
-								toast.success("Messages moved to Trash", {
+								toast.success(dict?.mailbox?.movedToTrash ?? "Messages moved to Trash", {
 									position: "bottom-left",
 								});
 							} catch {
@@ -468,7 +477,7 @@ export default function WebmailListItem({
 							}
 						}}
 						className="rounded p-1 hover:bg-muted"
-						title="Delete"
+						title={dict?.mailbox?.delete ?? "Delete"}
 					>
 						<Trash2 className="h-4 w-4" />
 					</button>

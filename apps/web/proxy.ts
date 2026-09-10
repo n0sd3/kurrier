@@ -1,20 +1,37 @@
-import {type NextRequest, NextResponse} from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+import { LOCALES } from "@/lib/locale";
 import { updateSession } from "@/lib/supabase/middleware";
 import { LOCALE_HEADER } from "@/lib/locale-header";
+import { DISTRIBUTION_CONFIG } from "@distribution/config";
 
-const locales = ["en", "ko", "pt"];
-const defaultLocale = "en";
+const locales = LOCALES;
+const defaultLocale = DISTRIBUTION_CONFIG.defaultLocale;
+
+// Accept-Language / the "locale" cookie may carry a region subtag our
+// configured locale list doesn't (e.g. "pt-BR" vs "pt"). Match exactly
+// first, then fall back to matching on the primary subtag.
+function normalizeLocale(tag: string): string | null {
+	const lower = tag.toLowerCase();
+	const exact = locales.find((l) => l.toLowerCase() === lower);
+	if (exact) return exact;
+	const primary = lower.split("-")[0];
+	return locales.find((l) => l.toLowerCase().split("-")[0] === primary) ?? null;
+}
 
 function detectLocale(request: NextRequest) {
-	const locale =
-		request.cookies.get("locale")?.value ||
-		request.headers.get("accept-language")?.split(",")[0]?.split("-")[0] ||
-		defaultLocale;
-	return locales.includes(locale) ? locale : defaultLocale;
+	const cookieLocale = request.cookies.get("locale")?.value;
+	const acceptLanguageTag = request.headers
+		.get("accept-language")
+		?.split(",")[0];
+
+	return (
+		(cookieLocale && normalizeLocale(cookieLocale)) ||
+		(acceptLanguageTag && normalizeLocale(acceptLanguageTag)) ||
+		defaultLocale
+	);
 }
 
 export async function proxy(request: NextRequest) {
-
 	if (request.nextUrl.pathname.startsWith("/api")) {
 		return await updateSession(request);
 	}

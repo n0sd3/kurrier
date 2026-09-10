@@ -1,35 +1,36 @@
 "use client";
 
-import React from "react";
 import type { DriveEntryEntity } from "@db";
 import {
-	IconFolder,
-	IconFile,
-	IconFileText,
-	IconFileTypePdf,
-	IconPhoto,
-	IconMusic,
-	IconVideo,
 	IconArchive,
-	IconFileSpreadsheet,
-	IconFileTypeDoc,
-	IconFileTypePpt,
 	IconCode,
+	IconFile,
+	IconFileSpreadsheet,
+	IconFileText,
+	IconFileTypeDoc,
+	IconFileTypePdf,
+	IconFileTypePpt,
+	IconFolder,
+	IconMusic,
+	IconPhoto,
+	IconVideo,
 } from "@tabler/icons-react";
-import dayjs from "dayjs";
-import DriveEntryOptions from "@/components/dashboard/drive/drive-entry-options";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
+import DriveEntryOptions from "@/components/dashboard/drive/drive-entry-options";
+import { useOptionalDictionary } from "@/components/providers/dictionary-provider";
 
 export default function DriveEntry({ entry }: { entry: DriveEntryEntity }) {
 	return <DriveTile entry={entry} />;
 }
 
 function DriveTile({ entry }: { entry: DriveEntryEntity }) {
-	const meta = entry.metaData as any;
+	const dict = useOptionalDictionary();
+	const meta = entry.metaData as { lastModified?: unknown } | null;
 	const lastModified = meta?.lastModified ?? null;
 	const ext = guessExt(entry);
-	const { Icon, badge } = pickIconAndBadge(entry, ext);
+	const { Icon, badge } = pickIconAndBadge(entry, ext, dict);
+	const { locale } = useParams<{ locale: string }>();
 	const pathname = usePathname();
 	const base = pathname.replace(/\/$/, "");
 	const prettyName = formatEntryName(entry.name);
@@ -37,11 +38,11 @@ function DriveTile({ entry }: { entry: DriveEntryEntity }) {
 		entry.type === "folder" ? `${base}/${encodeURIComponent(entry.name)}` : "#";
 
 	return (
-		<div className="group w-[260px]">
-			<div className="rounded-2xl border border-neutral-200 bg-white transition hover:shadow-xs dark:border-neutral-800 dark:bg-neutral-950">
-				<div className="relative h-[150px] overflow-hidden rounded-t-2xl bg-neutral-50 dark:bg-neutral-900">
+		<div className="group min-w-0 w-full">
+			<div className="overflow-hidden rounded-xl border bg-card transition-colors hover:bg-muted/30">
+				<div className="relative h-28 overflow-hidden border-b bg-muted/20 sm:h-32">
 					<div className="absolute left-3 top-3">
-						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/80 backdrop-blur border border-neutral-200 text-neutral-700 dark:bg-neutral-950/70 dark:border-neutral-800 dark:text-neutral-200">
+						<div className="flex size-9 items-center justify-center rounded-lg border bg-background/80 text-muted-foreground backdrop-blur">
 							<Icon className="h-5 w-5" />
 						</div>
 					</div>
@@ -49,14 +50,14 @@ function DriveTile({ entry }: { entry: DriveEntryEntity }) {
 					<DriveEntryOptions entry={entry} />
 
 					<div className="absolute inset-0 flex items-center justify-center">
-						<div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-white border border-neutral-200 text-neutral-700 dark:bg-neutral-950 dark:border-neutral-800 dark:text-neutral-200">
-							<Icon className="h-9 w-9" />
+						<div className="flex size-14 items-center justify-center rounded-xl border bg-background text-muted-foreground sm:size-16">
+							<Icon className="size-7 sm:size-8" />
 						</div>
 					</div>
 
 					{badge ? (
 						<div className="absolute bottom-3 left-3">
-							<span className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+							<span className="rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
 								{badge}
 							</span>
 						</div>
@@ -70,21 +71,21 @@ function DriveTile({ entry }: { entry: DriveEntryEntity }) {
 								<Link
 									href={folderHref}
 									title={entry.name}
-									className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-100"
+									className="block truncate text-sm font-medium text-foreground"
 								>
 									{prettyName}
 								</Link>
 							) : (
 								<div
 									title={entry.name}
-									className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-100"
+									className="block truncate text-sm font-medium text-foreground"
 								>
 									{prettyName}
 								</div>
 							)}
 						</div>
 
-						<div className="mt-1 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+						<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
 							{entry.type !== "folder" && (
 								<>
 									<span className="tabular-nums">
@@ -94,11 +95,9 @@ function DriveTile({ entry }: { entry: DriveEntryEntity }) {
 								</>
 							)}
 							{lastModified ? (
-								<>
-									<span className="truncate">
-										{formatLastModified(lastModified)}
-									</span>
-								</>
+								<span className="truncate" suppressHydrationWarning>
+									{formatLastModified(lastModified, locale)}
+								</span>
 							) : null}
 						</div>
 					</div>
@@ -109,9 +108,7 @@ function DriveTile({ entry }: { entry: DriveEntryEntity }) {
 }
 
 function Dot() {
-	return (
-		<span className="h-1 w-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-	);
+	return <span className="size-1 rounded-full bg-border" />;
 }
 
 function guessExt(entry: DriveEntryEntity) {
@@ -128,40 +125,50 @@ function cleanMime(mime: string) {
 	return main || mime;
 }
 
-function pickIconAndBadge(entry: DriveEntryEntity, ext: string | null) {
+function pickIconAndBadge(
+	entry: DriveEntryEntity,
+	ext: string | null,
+	dict: ReturnType<typeof useOptionalDictionary>,
+) {
 	if (entry.type === "folder") return { Icon: IconFolder, badge: "" };
 
 	const mime = cleanMime(entry.mimeType ?? "").toLowerCase();
 
 	if (mime.includes("pdf") || ext === "pdf")
-		return { Icon: IconFileTypePdf, badge: "PDF" };
+		return { Icon: IconFileTypePdf, badge: dict?.drive?.badgePdf ?? "PDF" };
 	if (
 		mime.startsWith("image/") ||
 		["png", "jpg", "jpeg", "webp", "gif", "svg", "heic"].includes(ext ?? "")
 	) {
-		return { Icon: IconPhoto, badge: "Image" };
+		return { Icon: IconPhoto, badge: dict?.drive?.badgeImage ?? "Image" };
 	}
 	if (
 		mime.startsWith("audio/") ||
 		["mp3", "wav", "m4a", "aac", "flac", "ogg"].includes(ext ?? "")
 	) {
-		return { Icon: IconMusic, badge: "Audio" };
+		return { Icon: IconMusic, badge: dict?.drive?.badgeAudio ?? "Audio" };
 	}
 	if (
 		mime.startsWith("video/") ||
 		["mp4", "mov", "mkv", "webm", "avi"].includes(ext ?? "")
 	) {
-		return { Icon: IconVideo, badge: "Video" };
+		return { Icon: IconVideo, badge: dict?.drive?.badgeVideo ?? "Video" };
 	}
 	if (["zip", "rar", "7z", "tar", "gz"].includes(ext ?? ""))
-		return { Icon: IconArchive, badge: "Archive" };
+		return { Icon: IconArchive, badge: dict?.drive?.badgeArchive ?? "Archive" };
 
 	if (["csv", "xls", "xlsx"].includes(ext ?? ""))
-		return { Icon: IconFileSpreadsheet, badge: "Sheet" };
+		return {
+			Icon: IconFileSpreadsheet,
+			badge: dict?.drive?.badgeSheet ?? "Sheet",
+		};
 	if (["doc", "docx"].includes(ext ?? ""))
-		return { Icon: IconFileTypeDoc, badge: "Doc" };
+		return { Icon: IconFileTypeDoc, badge: dict?.drive?.badgeDoc ?? "Doc" };
 	if (["ppt", "pptx"].includes(ext ?? ""))
-		return { Icon: IconFileTypePpt, badge: "Slides" };
+		return {
+			Icon: IconFileTypePpt,
+			badge: dict?.drive?.badgeSlides ?? "Slides",
+		};
 
 	if (
 		mime.includes("json") ||
@@ -195,11 +202,11 @@ function pickIconAndBadge(entry: DriveEntryEntity, ext: string | null) {
 			"php",
 		].includes(ext ?? "")
 	) {
-		return { Icon: IconCode, badge: "Code" };
+		return { Icon: IconCode, badge: dict?.drive?.badgeCode ?? "Code" };
 	}
 
 	if (mime.startsWith("text/") || ["txt", "md", "rtf"].includes(ext ?? ""))
-		return { Icon: IconFileText, badge: "Text" };
+		return { Icon: IconFileText, badge: dict?.drive?.badgeText ?? "Text" };
 
 	return { Icon: IconFile, badge: ext ? ext.toUpperCase() : "" };
 }
@@ -217,11 +224,16 @@ function formatBytes(n: number) {
 	return `${v.toFixed(digits)} ${units[i]}`;
 }
 
-function formatLastModified(v: any) {
+function formatLastModified(v: unknown, locale: string) {
 	const s = typeof v === "string" ? v : "";
 	if (!s) return "";
-	const d = new Date(s);
-	return dayjs(d).format("hh:mm A MMM D, YYYY");
+	const date = new Date(s);
+	if (Number.isNaN(date.getTime())) return "";
+
+	return new Intl.DateTimeFormat(locale || "en", {
+		dateStyle: "medium",
+		timeStyle: "short",
+	}).format(date);
 }
 
 function formatEntryName(name: string) {

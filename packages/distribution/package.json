@@ -1,0 +1,23 @@
+{
+	"name": "@kurrier/distribution",
+	"private": true,
+	"version": "1.0.0",
+	"description": "Distribution composition layer for configuring Kurrier-specific hooks, extensions, and plugins.",
+	"types": "src/index.ts",
+	"main": "src/index.ts",
+	"type": "module",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "Krishna Rokhale",
+	"license": "ISC",
+	"dependencies": {
+		"next": "^16.3.3",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.0"
+	}
+}

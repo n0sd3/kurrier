@@ -8,7 +8,9 @@ export const providersList = [
 	"postmark",
 	"sendgrid",
 	"s3",
-	"inbound"
+	"inbound",
+	"jmap",
+	"mailtrap"
 ] as const;
 export const ProvidersEnum = z.enum(providersList);
 export type Providers = z.infer<typeof ProvidersEnum>;
@@ -22,6 +24,8 @@ export const ProviderLabels: Record<Providers, string> = {
 	sendgrid: "SendGrid",
 	google: "Google",
 	inbound: "Kurrier Inbound",
+	jmap: "JMAP",
+	mailtrap: "Mailtrap Inbound",
 
 	s3: "S3 Compatible Storage",
 };
@@ -70,7 +74,6 @@ export const GOOGLE_SPEC = {
 	help:
 		"Connect Gmail or Google Workspace accounts using OAuth. No app passwords or SMTP credentials required.",
 };
-
 
 export const SMTP_SPEC = {
 	key: "smtp" as const,
@@ -139,4 +142,48 @@ export const INBOUND_SPEC = {
 	name: ProviderLabels.inbound,
 	help:
 		"Receive email directly through Kurrier’s API without configuring an external mail provider.",
+};
+
+export type JmapPreset = {
+
+	key: string;
+	name: string;
+	sessionUrl: string;
+	docsUrl: string;
+	help: string;
+
+};
+
+export const JMAP_PRESETS = {
+
+	fastmail: {
+		key: "fastmail",
+		name: "Fastmail",
+		sessionUrl: "https://api.fastmail.com/jmap/session",
+		docsUrl: "https://www.fastmail.com/dev/",
+		help:
+			"Connect Fastmail using an API token and sync mail through JMAP Core, Mail, and Submission.",
+	},
+
+} satisfies Record<string, JmapPreset>;
+
+export type JmapPresetKey = keyof typeof JMAP_PRESETS;
+
+export const JMAP_SPEC = {
+	key: "jmap" as const,
+	name: ProviderLabels.jmap,
+	help:
+		"Connect accounts from JMAP-compatible mail providers using a session endpoint and API token.",
+};
+
+export const jmapPresetList = Object.keys(
+	JMAP_PRESETS,
+) as [JmapPresetKey, ...JmapPresetKey[]];
+
+export const MAILTRAP_SPEC = {
+	key: "mailtrap" as const,
+	name: ProviderLabels.mailtrap,
+	help:
+		// "Receive email through Mailtrap's inbound inboxes. Add your Mailtrap API token below, then paste the generated webhook URL into your Mailtrap inbox settings.",
+		"Receive email directly from Mailtrap's Inbound Email API. We'll fetch and process the raw message and deliver it into Kurrier.",
 };

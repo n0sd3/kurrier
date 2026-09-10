@@ -1,19 +1,13 @@
 "use client";
 
-import React, {
-	forwardRef,
-	useImperativeHandle,
-	useRef,
-	useState,
-} from "react";
 import { ActionIcon, Progress } from "@mantine/core";
+import type { DriveState } from "@schema";
 import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { useOptionalDictionary } from "@/components/providers/dictionary-provider";
 import { useDynamicContext } from "@/hooks/use-dynamic-context";
-import { DriveState } from "@schema";
-import {
-	getCloudUploadUrl,
-	refreshViewAfterUpload,
-} from "@/lib/actions/drive";
+import { getCloudUploadUrl } from "@/lib/actions/drive";
 
 export type DriveUploaderHandle = {
 	openPicker: () => void;
@@ -37,6 +31,8 @@ type DriveUploaderProps = {
 
 const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 	function DriveUploader({ uploadStrategy = "proxy" }, ref) {
+		const dict = useOptionalDictionary();
+		const router = useRouter();
 		const { state } = useDynamicContext<DriveState>();
 		const ctx = state?.driveRouteContext;
 
@@ -52,7 +48,7 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 			if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
 			refreshTimerRef.current = window.setTimeout(() => {
 				refreshTimerRef.current = null;
-				refreshViewAfterUpload();
+				router.refresh();
 			}, 600);
 		};
 
@@ -74,7 +70,9 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 
 		async function startUpload(itemId: string, file: File) {
 			if (!ctx?.driveVolume || ctx.scope !== "cloud") {
-				throw new Error("Missing cloud volume");
+				throw new Error(
+					dict?.drive?.missingCloudVolume ?? "Missing cloud volume",
+				);
 			}
 
 			const presign = await getCloudUploadUrl(ctx, {
@@ -112,9 +110,7 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 				);
 
 				setItems((prev) =>
-					prev.map((it) =>
-						it.id === itemId ? { ...it, progress } : it,
-					),
+					prev.map((it) => (it.id === itemId ? { ...it, progress } : it)),
 				);
 			};
 
@@ -123,9 +119,7 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 					if (xhr.status >= 200 && xhr.status < 300) {
 						setItems((prev) =>
 							prev.map((it) =>
-								it.id === itemId
-									? { ...it, progress: 100, state: "done" }
-									: it,
+								it.id === itemId ? { ...it, progress: 100, state: "done" } : it,
 							),
 						);
 					} else {
@@ -145,7 +139,11 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 					setItems((prev) =>
 						prev.map((it) =>
 							it.id === itemId
-								? { ...it, state: "error", error: "Network error" }
+								? {
+										...it,
+										state: "error",
+										error: dict?.drive?.networkError ?? "Network error",
+									}
 								: it,
 						),
 					);
@@ -162,7 +160,7 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 				});
 			};
 
-			if ( uploadStrategy === "direct" ) {
+			if (uploadStrategy === "direct") {
 				xhr.open("PUT", presign.url, true);
 
 				const headers = presign.headers || {};
@@ -191,8 +189,6 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 
 				xhr.send(formData);
 			}
-
-
 		}
 
 		async function enqueueFiles(files: File[]) {
@@ -214,13 +210,13 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 						prev.map((it) =>
 							it.id === item.id
 								? {
-									...it,
-									state: "error",
-									error:
-										error instanceof Error
-											? error.message
-											: "Upload failed",
-								}
+										...it,
+										state: "error",
+										error:
+											error instanceof Error
+												? error.message
+												: (dict?.drive?.uploadFailed ?? "Upload failed"),
+									}
 								: it,
 						),
 					);
@@ -233,9 +229,7 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 				const item = prev.find((x) => x.id === id);
 				if (item?.xhr && item.state === "uploading") item.xhr.abort();
 
-				return prev.map((x) =>
-					x.id === id ? { ...x, state: "canceled" } : x,
-				);
+				return prev.map((x) => (x.id === id ? { ...x, state: "canceled" } : x));
 			});
 		}
 
@@ -247,7 +241,7 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 		);
 
 		return (
-			<div className="mt-2">
+			<div>
 				<input
 					ref={inputRef}
 					type="file"
@@ -262,7 +256,7 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 				/>
 
 				{canUpload && visible.length > 0 ? (
-					<div className="space-y-2">
+					<div className="fixed inset-x-4 bottom-4 z-50 space-y-2 sm:left-auto sm:w-96">
 						{visible.slice(0, 5).map((item) => (
 							<div
 								key={item.id}
@@ -280,7 +274,9 @@ const DriveUploader = forwardRef<DriveUploaderHandle, DriveUploaderProps>(
 
 										{item.state === "error" ? (
 											<div className="mt-1 text-[11px] text-red-600">
-												{item.error ?? "Upload failed"}
+												{item.error ??
+													dict?.drive?.uploadFailed ??
+													"Upload failed"}
 											</div>
 										) : null}
 									</div>

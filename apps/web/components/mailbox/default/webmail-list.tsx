@@ -1,25 +1,28 @@
 "use client";
-import * as React from "react";
-import { PublicConfig } from "@schema";
-import {
-	FetchIdentityMailboxListResult, FetchMailboxResult,
-	FetchMailboxThreadsResult,
-} from "@/lib/actions/mailbox";
-import {
-	FetchLabelsResult,
-	FetchMailboxThreadLabelsResult,
-} from "@/lib/actions/labels";
+import type { PublicConfig } from "@schema";
+import { useParams, useRouter } from "next/navigation";
+import { use } from "react";
 import MailListHeader from "@/components/mailbox/default/mail-list-header";
 import WebmailListItem from "@/components/mailbox/default/webmail-list-item";
 import { DynamicContextProvider } from "@/hooks/use-dynamic-context";
 import { PendingThreadActionsProvider } from "@/hooks/use-pending-thread-actions";
-import { useParams, useRouter } from "next/navigation";
-import {use} from "react";
+import type {
+	FetchLabelsResult,
+	FetchMailboxThreadLabelsResult,
+} from "@/lib/actions/labels";
+import type {
+	FetchIdentityMailboxListResult,
+	FetchMailboxResult,
+	FetchMailboxThreadsResult,
+} from "@/lib/actions/mailbox";
 import type { MailboxContextMap } from "@/lib/unified-mailbox";
 import type { MailboxKind } from "@schema";
 
 type WebListProps = {
-	mailboxThreadPromise: Promise<{ mailboxThreads: FetchMailboxThreadsResult, labelsByThreadId: FetchMailboxThreadLabelsResult }>;
+	mailboxThreadPromise: Promise<{
+		mailboxThreads: FetchMailboxThreadsResult;
+		labelsByThreadId: FetchMailboxThreadLabelsResult;
+	}>;
 	publicConfig: PublicConfig;
 	mailboxById: MailboxContextMap;
 	identityMailboxesPromise: Promise<FetchIdentityMailboxListResult>;
@@ -43,18 +46,18 @@ export default function WebmailList({
 	isUnified,
 	viewKind,
 }: WebListProps) {
-	const {labelsByThreadId, mailboxThreads} = use(mailboxThreadPromise)
-	const globalLabels = use(globalLabelsPromise)
+	const { labelsByThreadId, mailboxThreads } = use(mailboxThreadPromise);
+	const globalLabels = use(globalLabelsPromise);
 	const mailboxResult = fetchMailboxPromise ? use(fetchMailboxPromise) : null;
 	const activeMailbox = mailboxResult?.activeMailbox ?? null;
 	const mailboxSync = mailboxResult?.mailboxSync ?? null;
 	const identity = mailboxResult?.identity;
-	const identityMailboxes = use(identityMailboxesPromise)
+	const identityMailboxes = use(identityMailboxesPromise);
 	const params = useParams();
 	const router = useRouter();
 
 	return (
-		<div className={params?.threadId ? "hidden" : ""}>
+		<div className={params?.threadId ? "hidden" : "min-w-0"}>
 			<DynamicContextProvider
 				initialState={{
 					selectedThreadIds: new Set(),
@@ -68,7 +71,7 @@ export default function WebmailList({
 						</span>
 					</div>
 				) : (
-					<div className="overflow-hidden rounded-xl border bg-background/50 z-[50]">
+					<div className="min-w-0 overflow-hidden rounded-xl border bg-background/50 z-[50]">
 						<MailListHeader
 							mailboxThreads={mailboxThreads}
 							mailboxSync={mailboxSync ?? undefined}
@@ -82,21 +85,21 @@ export default function WebmailList({
 						/>
 
 						<PendingThreadActionsProvider onSettled={() => router.refresh()}>
-						<ul role="list" className="divide-y">
-							{mailboxThreads.map((mailboxThreadItem) => (
-								<WebmailListItem
-									key={
-										mailboxThreadItem.threadId + mailboxThreadItem.mailboxId
-									}
-									mailboxThreadItem={mailboxThreadItem}
-									workspacePublicId={workspacePublicId}
-									mailboxById={mailboxById}
-									globalLabels={globalLabels}
-									labelsByThreadId={labelsByThreadId}
-									showAccount={isUnified}
-								/>
-							))}
-						</ul>
+							<ul role="list" className="divide-y">
+								{mailboxThreads.map((mailboxThreadItem) => (
+									<WebmailListItem
+										key={
+											mailboxThreadItem.threadId + mailboxThreadItem.mailboxId
+										}
+										mailboxThreadItem={mailboxThreadItem}
+										workspacePublicId={workspacePublicId}
+										mailboxById={mailboxById}
+										globalLabels={globalLabels}
+										labelsByThreadId={labelsByThreadId}
+										showAccount={isUnified}
+									/>
+								))}
+							</ul>
 						</PendingThreadActionsProvider>
 					</div>
 				)}

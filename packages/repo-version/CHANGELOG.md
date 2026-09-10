@@ -1,5 +1,107 @@
 # @kurrier/repo
 
+## 4.0.0
+
+### Major Changes
+
+- [#642](https://github.com/kurrier-org/kurrier/pull/642) [`7e918cc`](https://github.com/kurrier-org/kurrier/commit/7e918cc0e75916bf4a31e26b27de8c3054902175) Thanks [@krokhale](https://github.com/krokhale)! - Major mail reliability, responsive UI, email composer and viewer improvements, internationalization, and dependency updates.
+
+## 3.9.6
+
+### Patch Changes
+
+- [`4314d3d`](https://github.com/kurrier-org/kurrier/commit/4314d3df20499be596c2d9d1ce2c8e6510d1beaa) Thanks [@krokhale](https://github.com/krokhale)! - Add Russian language support, allow disabling local email/password login, and improve rendering for faster instant navigation.
+
+## 3.9.5
+
+### Patch Changes
+
+- [`02991f9`](https://github.com/kurrier-org/kurrier/commit/02991f9c8a9892d8042338e3efc5c9b0e0956aba) Thanks [@krokhale](https://github.com/krokhale)! - Add Russian language support, allow disabling local email/password login, and improve rendering for faster instant navigation.
+
+## 3.9.4
+
+### Patch Changes
+
+- [`e525941`](https://github.com/kurrier-org/kurrier/commit/e5259410115be72a2ee1680cdff2a750a8e79d4d) Thanks [@krokhale](https://github.com/krokhale)! - Add Russian language support, allow disabling local email/password login, and improve rendering for faster instant navigation.
+
+## 3.9.3
+
+### Patch Changes
+
+- [`7685a35`](https://github.com/kurrier-org/kurrier/commit/7685a352f2ba94e5e323d499bd6d75591084e530) Thanks [@krokhale](https://github.com/krokhale)! - Add Russian language support, allow disabling local email/password login, and improve rendering for faster instant navigation.
+
+## 3.9.2
+
+### Patch Changes
+
+- [`a6b2631`](https://github.com/kurrier-org/kurrier/commit/a6b263143aa9ea266e8b0d1fe76680b321af3421) Thanks [@krokhale](https://github.com/krokhale)! - Add Russian language support, allow disabling local email/password login, and improve rendering for faster instant navigation.
+
+## 3.9.1
+
+### Patch Changes
+
+- [`f8192fc`](https://github.com/kurrier-org/kurrier/commit/f8192fcc91f6165b0d9b6e180aec985ae2048378) Thanks [@krokhale](https://github.com/krokhale)! - Add Russian language support, allow disabling local email/password login, and improve rendering for faster instant navigation.
+
+## 3.9.0
+
+### Minor Changes
+
+- [`4baf594`](https://github.com/kurrier-org/kurrier/commit/4baf594415154632d7431fc5a6bbd14c8d5d738f) Thanks [@krokhale](https://github.com/krokhale)! - Harden IMAP sync and connection lifecycle, add one-step custom provider mailbox setup, improve mobile mailbox navigation, complete pt-BR localization, refactor SMTP account handling, and add JMAP provider documentation.
+
+## 3.8.1
+
+### Patch Changes
+
+- [`e23398f`](https://github.com/kurrier-org/kurrier/commit/e23398f4c2b719c113b5fe8d01dbe09b5b73d5b7) Thanks [@krokhale](https://github.com/krokhale)! - Harden IMAP sync and connection lifecycle, add one-step custom provider mailbox setup, improve mobile mailbox navigation, complete pt-BR localization, refactor SMTP account handling, and add JMAP provider documentation.
+
+## 3.8.0
+
+### Minor Changes
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Add i18n dictionary architecture (namespaced JSON files per locale, a DictionaryProvider/useDictionary() hook so client components can access translations without prop-drilling, and a check-locales script to catch key drift), the language switcher UI, and a new Brazilian Portuguese (br) locale with full common+auth coverage. First step of a series of PRs adding full pt-BR translation across the app.
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Wire dictionary-based translation resolution into the shared ReusableForm/ReusableFormItems components (used by nearly every form in the app), so server-action and validation messages can be translated by returning dotted keys instead of literal English. Purely additive — no behavior change today since the action/validation namespaces are still empty.
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Translate the dashboard nav/sidebar shell (top-level navigation, log out, storage-over-limit banner) shared across mail, contacts, calendar, drive and platform sections.
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Translate the mailbox area: compose, thread list/search, mail rules, labels, and the message inspector (headers/SMTP/JSON/raw/HTML/plain-text/delivery panes).
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Translate the platform/settings area: overview dashboard, providers, mail identities, storage volumes, API keys, webhooks, sync services (CalDAV/CardDAV), and workspace settings.
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Translate the Contacts area: contact list/detail views, new/edit contact form, delete confirmation, sidebar navigation, and label assignment.
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Translate the Calendar area: day/week/month grid views, event creation/editing, recurrence rules, guest invitations, and calendar settings. Also wires dayjs locale switching so weekday and month names follow the active language.
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Translate the Drive area: file/folder browsing, upload progress and errors, file-type badges, breadcrumbs, and folder creation/deletion.
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Convert remaining server-action result messages (labels, mail rules, mailbox folders/unsubscribe, dashboard providers/identities/API keys/volumes/webhooks, workspace) to dictionary keys, and teach ReusableFormButton to resolve them the same way ReusableForm already does.
+
+### Patch Changes
+
+- [#555](https://github.com/kurrier-org/kurrier/pull/555) [`a925c9c`](https://github.com/kurrier-org/kurrier/commit/a925c9c9cacfde3892cb1cbf80801c7e79a9de91) Thanks [@areacli](https://github.com/areacli)! - Add missing default routes ([locale], [locale]/w, dashboard index), a branded not-found/error page instead of Next's default, and fix several places where a redirect dropped the current locale (post-signup/login, auth layout guards). Also removes the dead, unreachable app/page.tsx that pointed at a stale route shape.
+
+## 3.7.0
+
+### Minor Changes
+
+- [`9bdb9d7`](https://github.com/kurrier-org/kurrier/commit/9bdb9d7c5a5a5268481cee42dc8b7cbebea67965) Thanks [@krokhale](https://github.com/krokhale)! - Add JMAP mail provider (BETA) support and workspace-managed Google Mail OAuth credentials
+
+### Patch Changes
+
+- [`77299a7`](https://github.com/kurrier-org/kurrier/commit/77299a72e5b4ac94e3b50300f94e5f697c907791) Thanks [@krokhale](https://github.com/krokhale)! - add JMAP provider configuration
+
+## 3.6.0
+
+### Minor Changes
+
+- [`67389e3`](https://github.com/kurrier-org/kurrier/commit/67389e3775a9faa76bbd6a23454d4b3dbeb8578a) Thanks [@krokhale](https://github.com/krokhale)! - Add JMAP mail provider (BETA) support and workspace-managed Google Mail OAuth credentials
+
+## 3.5.0
+
+### Minor Changes
+
+- [`c7d7c0f`](https://github.com/kurrier-org/kurrier/commit/c7d7c0f9c5e817347365c09743c98d2d7cd26ca0) Thanks [@krokhale](https://github.com/krokhale)! - Add Kurrier Vault UI and workspace-wide custom SMTP/IMAP provider configuration
+
 ## 3.4.1
 
 ### Patch Changes

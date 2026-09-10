@@ -1,8 +1,17 @@
 "use client";
 
+import { IconFrame } from "@tabler/icons-react";
+import { Calendar, Contact, HardDrive, Inbox, MailOpen, X } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import * as React from "react";
-import { Calendar, Contact, HardDrive, Inbox, MailOpen } from "lucide-react";
-
+import KurrierLogo from "@/components/common/kurrier-logo";
+import ThemeColorPicker from "@/components/common/theme-color-picker";
+import ThemeSwitch from "@/components/common/theme-switch";
+import { useOptionalDictionary } from "@/components/providers/dictionary-provider";
+import { useSiteFeatures } from "@/components/providers/site-features-provider";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
 	Sidebar,
 	SidebarContent,
@@ -15,21 +24,12 @@ import {
 	SidebarMenuItem,
 	useSidebar,
 } from "@/components/ui/sidebar";
-import { usePathname, useRouter } from "next/navigation";
-import KurrierLogo from "@/components/common/kurrier-logo";
-import ThemeColorPicker from "@/components/common/theme-color-picker";
-import ThemeSwitch from "@/components/common/theme-switch";
-import Link from "next/link";
-import { useMediaQuery } from "@mantine/hooks";
-import { Divider } from "@mantine/core";
-import { IconFrame } from "@tabler/icons-react";
-import { useSiteFeatures } from "@/components/providers/site-features-provider";
 
 type UnifiedSidebarProps = React.ComponentProps<typeof Sidebar> & {
 	navUserContent: React.ReactNode;
 	sidebarSectionContent?: React.ReactNode;
 	sidebarTopContent?: React.ReactNode;
-	workspacePublicId?: string
+	workspacePublicId?: string;
 };
 
 export function AppSidebar({ ...props }: UnifiedSidebarProps) {
@@ -41,25 +41,25 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 		navUserContent,
 		...restProps
 	} = props;
-
-	const isMobile = useMediaQuery("(max-width: 768px)");
+	const { setOpen, setOpenMobile } = useSidebar();
+	const dict = useOptionalDictionary();
 
 	const data = {
 		navMain: [
 			{
-				title: "All Mail",
+				title: dict?.dashboard?.navMail ?? "All Mail",
 				url: `/w/${workspacePublicId}/dashboard/mail`,
 				icon: Inbox,
 				isActive: true,
 			},
 			{
-				title: "Contacts",
+				title: dict?.dashboard?.navContacts ?? "Contacts",
 				url: `/w/${workspacePublicId}/dashboard/contacts`,
 				icon: Contact,
 				isActive: true,
 			},
 			{
-				title: "Calendar",
+				title: dict?.dashboard?.navCalendar ?? "Calendar",
 				url: `/w/${workspacePublicId}/dashboard/calendar`,
 				icon: Calendar,
 				isActive: true,
@@ -67,7 +67,7 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 			...(drive
 				? [
 						{
-							title: "Drive",
+							title: dict?.dashboard?.navDrive ?? "Drive",
 							url: `/w/${workspacePublicId}/dashboard/drive`,
 							icon: HardDrive,
 							isActive: true,
@@ -75,7 +75,7 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 					]
 				: []),
 			{
-				title: "Platform",
+				title: dict?.dashboard?.navPlatform ?? "Platform",
 				url: `/w/${workspacePublicId}/dashboard/platform/overview`,
 				icon: IconFrame,
 				isActive: false,
@@ -84,7 +84,6 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 	};
 
 	const pathName = usePathname();
-	const isOnMail = pathName?.includes("/mail");
 	const isOnPlatform = pathName?.includes("/platform");
 	const isOnContacts = pathName?.includes("/contacts");
 	const isOnCalendar = pathName?.includes("/calendar");
@@ -102,59 +101,15 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 					? "drive"
 					: "mail";
 
-	const [activeItem, setActiveItem] = React.useState(() => {
-		if (section === "platform") {
-			return (
-				data.navMain.find((i) => i.url.includes("/platform")) ?? data.navMain[0]
-			);
-		}
-		if (section === "contacts") {
-			return (
-				data.navMain.find((i) => i.url.includes("/contacts")) ?? data.navMain[0]
-			);
-		}
-		if (section === "calendar") {
-			return (
-				data.navMain.find((i) => i.url.includes("/calendar")) ?? data.navMain[0]
-			);
-		}
-		if (section === "drive") {
-			return (
-				data.navMain.find((i) => i.url.includes("/drive")) ?? data.navMain[0]
-			);
-		}
-		return data.navMain.find((i) => i.url.includes("/mail")) ?? data.navMain[0];
-	});
+	const activeItem =
+		data.navMain.find((item) => item.url.includes(`/${section}`)) ??
+		data.navMain[0];
 
 	React.useEffect(() => {
-		if (section === "platform") {
-			setActiveItem(
-				data.navMain.find((i) => i.url.includes("/platform")) ??
-					data.navMain[0],
-			);
-		} else if (section === "calendar") {
-			setActiveItem(
-				data.navMain.find((i) => i.url.includes("/calendar")) ??
-					data.navMain[0],
-			);
-		} else if (section === "contacts") {
-			setActiveItem(
-				data.navMain.find((i) => i.url.includes("/contacts")) ??
-					data.navMain[0],
-			);
-		} else if (section === "drive") {
-			setActiveItem(
-				data.navMain.find((i) => i.url.includes("/drive")) ?? data.navMain[0],
-			);
-		} else {
-			setActiveItem(
-				data.navMain.find((i) => i.url.includes("/mail")) ?? data.navMain[0],
-			);
+		if (pathName) {
+			setOpenMobile(false);
 		}
-	}, [section, pathName, data.navMain]);
-
-	const { setOpen, toggleSidebar } = useSidebar();
-	const router = useRouter();
+	}, [pathName, setOpenMobile]);
 
 	return (
 		<Sidebar
@@ -167,13 +122,35 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 			{/* This will make the sidebar appear as icons. */}
 			<Sidebar
 				collapsible="none"
-				className="w-[calc(var(--sidebar-width-icon)+1px)]! border-r"
+				className="w-full! border-r md:w-[calc(var(--sidebar-width-icon)+1px)]!"
 			>
-				<SidebarHeader>
-					<SidebarMenu>
+				<SidebarHeader className="border-b md:border-b-0">
+					<div className="flex items-center justify-between px-1 py-1 md:hidden">
+						<Link
+							href={`/w/${workspacePublicId}/dashboard/mail`}
+							className="flex items-center gap-2"
+						>
+							<KurrierLogo size={30} />
+							<span className="text-base font-semibold">kurrier</span>
+						</Link>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => setOpenMobile(false)}
+							aria-label={
+								dict?.dashboard?.closeNavigation ?? "Close navigation"
+							}
+						>
+							<X className="size-5" />
+						</Button>
+					</div>
+
+					<SidebarMenu className="hidden md:flex">
 						<SidebarMenuItem>
 							<SidebarMenuButton size="lg" asChild className="md:h-8 md:p-0">
-								<Link href={`/w/${workspacePublicId}/dashboard/platform/overview`}>
+								<Link
+									href={`/w/${workspacePublicId}/dashboard/platform/overview`}
+								>
 									<div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
 										<MailOpen className="size-4" />
 									</div>
@@ -186,74 +163,54 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 					</SidebarMenu>
 				</SidebarHeader>
 				<SidebarContent className={"relative"}>
-					<SidebarGroup className={"mt-8"}>
+					<SidebarGroup className="mt-2 md:mt-8">
 						<SidebarGroupContent className="px-1.5 md:px-0">
 							<SidebarMenu>
 								{data.navMain.map((item) => (
-									<SidebarMenuItem
-										key={item.title}
-										onClick={() => {
-											if (isMobile) {
-												toggleSidebar();
-											}
-										}}
-									>
+									<SidebarMenuItem key={item.title}>
 										<SidebarMenuButton
+											asChild
 											tooltip={{
 												children: item.title,
 												hidden: false,
 											}}
-											onClick={() => {
-												setActiveItem(item);
-												setOpen(true);
-												router.push(item.url);
-											}}
 											isActive={activeItem?.title === item.title}
 											className={"px-2.5 md:px-2"}
 										>
-											<item.icon
-												className={
-													item.title === activeItem?.title
-														? "text-brand dark:text-white"
-														: ""
-												}
-											/>
-											<span>{item.title}</span>
+											<Link
+												href={item.url}
+												onClick={() => {
+													setOpen(true);
+													setOpenMobile(false);
+												}}
+											>
+												<item.icon
+													className={
+														item.title === activeItem?.title
+															? "text-brand dark:text-white"
+															: ""
+													}
+												/>
+												<span>{item.title}</span>
+											</Link>
 										</SidebarMenuButton>
 									</SidebarMenuItem>
 								))}
 
-								{isMobile ? (
-									<>
-										<Divider variant={"dashed"} my={"xl"} />
-										{sidebarSectionContent}
-									</>
-								) : (
-									<hr className="my-2 border-border" />
-								)}
+								<Separator className="my-2 hidden md:block" />
 							</SidebarMenu>
+							<div className="mt-2 md:hidden">
+								<Separator className="my-4" />
+								{sidebarSectionContent}
+							</div>
 						</SidebarGroupContent>
 					</SidebarGroup>
-					<div
-						className={
-							isMobile
-								? "absolute top-0 mx-4 flex gap-2 justify-center items-center"
-								: "absolute bottom-28 rotate-90 flex justify-start items-center w-full gap-2"
-						}
-					>
-						<ThemeColorPicker
-							onComplete={() => {
-								isMobile && toggleSidebar();
-							}}
-						/>
-						<ThemeSwitch
-							onComplete={() => {
-								isMobile && toggleSidebar();
-							}}
-						/>
+					<div className="mt-auto flex items-center justify-center gap-3 border-t px-4 py-3 md:absolute md:bottom-28 md:w-full md:rotate-90 md:justify-start md:border-t-0 md:px-0 md:py-0">
+						<ThemeColorPicker onComplete={() => setOpenMobile(false)} />
+						<ThemeSwitch onComplete={() => setOpenMobile(false)} />
 					</div>
 				</SidebarContent>
-				<SidebarFooter>
+				<SidebarFooter className="border-t md:border-t-0">
 					{navUserContent}
 				</SidebarFooter>
 			</Sidebar>
@@ -261,7 +218,7 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 			{/* This is the second sidebar */}
 			{/* We disable collapsible and let it fill remaining space */}
 
-			<Sidebar collapsible="none" className="hidden flex-1 md:flex">
+			<Sidebar collapsible="none" className="hidden min-w-0 flex-1 md:flex">
 				<SidebarHeader className="gap-3.5 border-b p-4">
 					<div className="text-left font-sans flex items-center gap-1">
 						<KurrierLogo size={36} />
@@ -269,9 +226,11 @@ export function AppSidebar({ ...props }: UnifiedSidebarProps) {
 					</div>
 					{sidebarTopContent}
 				</SidebarHeader>
-				<SidebarContent>
+				<SidebarContent className="min-w-0">
 					<SidebarGroup className="px-0">
-						<SidebarGroupContent>{sidebarSectionContent}</SidebarGroupContent>
+						<SidebarGroupContent className="min-w-0">
+							{sidebarSectionContent}
+						</SidebarGroupContent>
 					</SidebarGroup>
 				</SidebarContent>
 			</Sidebar>

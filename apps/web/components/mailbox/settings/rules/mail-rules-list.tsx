@@ -13,6 +13,7 @@ import { Pencil, Play, Power, PowerOff, Trash2 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Collapse } from "@mantine/core";
 import CreateRuleFormGmailV1 from "@/components/mailbox/settings/rules/create-rule-form";
+import { useOptionalDictionary } from "@/components/providers/dictionary-provider";
 import {
     describeCondition,
     ruleToFormValues,
@@ -37,6 +38,7 @@ function MailRuleCard({
     appLabels: FetchAppLabelsResult;
     pathname: string;
 }) {
+    const dict = useOptionalDictionary();
     const [editing, setEditing] = useState(false);
 
     const actions = rule.actions.slice().sort((a, b) => a.order - b.order);
@@ -61,12 +63,12 @@ function MailRuleCard({
                                     : "bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300",
                             ].join(" ")}
                         >
-                            {rule.enabled ? "Enabled" : "Disabled"}
+                            {rule.enabled ? (dict?.mailbox?.enabled ?? "Enabled") : (dict?.mailbox?.disabled ?? "Disabled")}
                         </span>
                     </div>
 
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
-                        <span>Priority {rule.priority}</span>
+                        <span>{dict?.mailbox?.priority ?? "Priority"} {rule.priority}</span>
                     </div>
                 </div>
 
@@ -107,7 +109,7 @@ function MailRuleCard({
                             size: "sm",
                             variant: "subtle",
                             children: rule.enabled ? <Power size={16} /> : <PowerOff size={16} />,
-                            title: "Toggle rule",
+                            title: dict?.mailbox?.toggleRule ?? "Toggle rule",
                             className: iconButtonClasses,
                         }}
                     >
@@ -123,7 +125,7 @@ function MailRuleCard({
                             size: "sm",
                             variant: "light",
                             children: <Trash2 size={16} />,
-                            title: "Delete rule",
+                            title: dict?.mailbox?.deleteRule ?? "Delete rule",
                             className: iconButtonClasses,
                         }}
                     >
@@ -154,7 +156,7 @@ function MailRuleCard({
 
             <div className="mt-4">
                 <div className="text-xs font-medium text-neutral-900 dark:text-neutral-100">
-                    Actions
+                    {dict?.mailbox?.actions ?? "Actions"}
                 </div>
 
                 {actions.length ? (
@@ -167,12 +169,12 @@ function MailRuleCard({
                     </div>
                 ) : (
                     <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
-                        None
+                        {dict?.mailbox?.none ?? "None"}
                     </div>
                 )}
             </div>
 
-            <Collapse in={editing}>
+            <Collapse expanded={editing}>
                 <div className="mt-4 border-t border-neutral-200 dark:border-neutral-800 pt-4">
                     {unsupported.length ? (
                         <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
@@ -192,7 +194,7 @@ function MailRuleCard({
                         values={values}
                         ruleId={rule.id}
                         pathname={pathname}
-                        submitLabel="Save changes"
+                        submitLabel={dict?.mailbox?.saveChanges ?? "Save changes"}
                     />
                 </div>
             </Collapse>
@@ -208,11 +210,12 @@ export default function MailRulesList({
     appLabels: FetchAppLabelsResult;
 }) {
     const pathname = usePathname();
+    const dict = useOptionalDictionary();
 
     if (!rules.length) {
         return (
             <div className="mt-6 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 p-6 text-sm text-neutral-600 dark:text-neutral-400 mb-8">
-                No rules yet.
+                {dict?.mailbox?.noRulesYet ?? "No rules yet."}
             </div>
         );
     }

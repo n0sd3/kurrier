@@ -1,58 +1,34 @@
--- Live mailbox counts.
---
--- Every writer that can change what the sidebar shows — IMAP IDLE, the Gmail
--- delta sync, the rules processor, and the web's own server actions — ends up
--- writing mailbox_threads. Notifying from the table itself means none of them
--- has to remember to publish an event, and one that is added later is covered
--- for free.
---
--- The payload carries only ids. The SSE route matches owner_id against the
--- signed-in user before forwarding anything, so a notification is never
--- delivered to a browser that does not own the row.
-
-CREATE OR REPLACE FUNCTION public.notify_mailbox_threads_change()
-RETURNS trigger AS $$
-DECLARE
-  rec record;
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    rec := OLD;
-  ELSE
-    rec := NEW;
-  END IF;
-
-  PERFORM pg_notify(
-    'kurrier_mailbox_threads',
-    json_build_object(
-      'ownerId', rec.owner_id,
-      'mailboxId', rec.mailbox_id,
-      'identityPublicId', rec.identity_public_id,
-      'op', TG_OP
-    )::text
-  );
-
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;--> statement-breakpoint
-
-DROP TRIGGER IF EXISTS trg_mailbox_threads_notify_write ON public.mailbox_threads;--> statement-breakpoint
-
-CREATE TRIGGER trg_mailbox_threads_notify_write
-AFTER INSERT OR DELETE ON public.mailbox_threads
-FOR EACH ROW EXECUTE FUNCTION public.notify_mailbox_threads_change();--> statement-breakpoint
-
-DROP TRIGGER IF EXISTS trg_mailbox_threads_notify_update ON public.mailbox_threads;--> statement-breakpoint
-
--- Updates are noisy (every message upsert touches the row), so only the
--- columns the mail UI actually renders are worth waking a browser for.
-CREATE TRIGGER trg_mailbox_threads_notify_update
-AFTER UPDATE ON public.mailbox_threads
-FOR EACH ROW
-WHEN (
-  OLD.unread_count IS DISTINCT FROM NEW.unread_count
-  OR OLD.message_count IS DISTINCT FROM NEW.message_count
-  OR OLD.starred IS DISTINCT FROM NEW.starred
-  OR OLD.last_activity_at IS DISTINCT FROM NEW.last_activity_at
-  OR OLD.snoozed_until IS DISTINCT FROM NEW.snoozed_until
-)
-EXECUTE FUNCTION public.notify_mailbox_threads_change();
+CREATE TABLE "push_subscriptions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"owner_id" uuid DEFAULT
+  nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+ NOT NULL,
+	"endpoint" text NOT NULL,
+	"p256dh" text NOT NULL,
+	"auth" text NOT NULL,
+	"user_agent" text,
+	"workspace_id" uuid DEFAULT
+  nullif(current_setting('request.jwt.claim.workspace_id', true), '')::uuid
+ NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "push_subscriptions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "uniq_push_subscription_endpoint" ON "push_subscriptions" USING btree ("endpoint");--> statement-breakpoint
+CREATE INDEX "ix_push_subscriptions_owner" ON "push_subscriptions" USING btree ("owner_id");--> statement-breakpoint
+CREATE POLICY "push_subscriptions_select_workspace" ON "push_subscriptions" AS PERMISSIVE FOR SELECT TO "kurrier" USING ("push_subscriptions"."workspace_id" =
+  nullif(current_setting('request.jwt.claim.workspace_id', true), '')::uuid
+);--> statement-breakpoint
+CREATE POLICY "push_subscriptions_insert_workspace" ON "push_subscriptions" AS PERMISSIVE FOR INSERT TO "kurrier" WITH CHECK ("push_subscriptions"."workspace_id" =
+  nullif(current_setting('request.jwt.claim.workspace_id', true), '')::uuid
+);--> statement-breakpoint
+CREATE POLICY "push_subscriptions_update_workspace" ON "push_subscriptions" AS PERMISSIVE FOR UPDATE TO "kurrier" USING ("push_subscriptions"."workspace_id" =
+  nullif(current_setting('request.jwt.claim.workspace_id', true), '')::uuid
+) WITH CHECK ("push_subscriptions"."workspace_id" =
+  nullif(current_setting('request.jwt.claim.workspace_id', true), '')::uuid
+);--> statement-breakpoint
+CREATE POLICY "push_subscriptions_delete_workspace" ON "push_subscriptions" AS PERMISSIVE FOR DELETE TO "kurrier" USING ("push_subscriptions"."workspace_id" =
+  nullif(current_setting('request.jwt.claim.workspace_id', true), '')::uuid
+);--> statement-breakpoint

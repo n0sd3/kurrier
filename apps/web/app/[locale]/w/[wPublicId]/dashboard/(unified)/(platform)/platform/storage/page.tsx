@@ -1,60 +1,31 @@
-import * as React from "react";
-import { Container } from "@/components/common/containers";
-import { ProviderLabels, STORAGE_PROVIDERS } from "@schema";
-import {
-	fetchDecryptedSecrets,
-	getProviderById,
-	syncProviders,
-} from "@/lib/actions/dashboard";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import VolumesManager from "@/components/dashboard/storage/volumes-manager";
-import {getWorkspacePublicId, rlsClient} from "@/lib/actions/clients";
-import { driveVolumes, providerSecrets, smtpAccountSecrets } from "@db";
-import { parseSecret } from "@/lib/utils";
-import ProviderCardShell from "@/components/dashboard/providers/provider-card-shell";
+import { driveVolumes } from "@db";
+import { STORAGE_PROVIDERS } from "@schema";
 import { redirect } from "next/navigation";
-import { SITE_FEATURES } from "@/lib/site-features";
+import { Container } from "@/components/common/containers";
+import ProviderCardShell from "@/components/dashboard/providers/provider-card-shell";
+import VolumesManager from "@/components/dashboard/storage/volumes-manager";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { getWorkspacePublicId, rlsClient } from "@/lib/actions/clients";
+import { syncProviders } from "@/lib/actions/dashboard";
+import { getDictionary } from "@/lib/dictionaries";
+import { DISTRIBUTION_CONFIG } from "@distribution/config";
 
-export default async function ProvidersPage() {
-	const workspacePublicId = await getWorkspacePublicId()
-	if (!SITE_FEATURES.drive) {
-		redirect(`/w/${workspacePublicId}/dashboard/platform/overview`);
+export default async function ProvidersPage({
+	params,
+}: {
+	params: Promise<{ locale: string }>;
+}) {
+	const { locale } = await params;
+	const dict = await getDictionary(locale);
+	const workspacePublicId = await getWorkspacePublicId();
+	if (!DISTRIBUTION_CONFIG.features.drive) {
+		redirect(`/${locale}/w/${workspacePublicId}/dashboard/platform/overview`);
 	}
 
 	const userProviders = await syncProviders();
 	const rls = await rlsClient();
 	const vols = await rls((tx) => tx.select().from(driveVolumes));
-	const [, userProviderAccounts] = await Promise.all([
-		fetchDecryptedSecrets({
-			linkTable: smtpAccountSecrets,
-			foreignCol: smtpAccountSecrets.accountId,
-			secretIdCol: smtpAccountSecrets.secretId,
-		}),
-		fetchDecryptedSecrets({
-			linkTable: providerSecrets,
-			foreignCol: providerSecrets.providerId,
-			secretIdCol: providerSecrets.secretId,
-		}),
-	]);
-
-	const options = [];
-	for (const providerAccount of userProviderAccounts) {
-		const secret = parseSecret(providerAccount);
-		if (secret.verified) {
-			const provider = await getProviderById(
-				String(providerAccount.linkRow.providerId),
-			);
-			const providerName =
-				ProviderLabels[provider?.type || "unknown"] || "Unknown Provider";
-			if (provider) {
-				options.push({
-					label: providerName,
-					value: String(providerAccount.providerId),
-				});
-			}
-		}
-	}
 
 	return (
 		<>
@@ -71,13 +42,12 @@ export default async function ProvidersPage() {
 				<Container variant="wide">
 					<div className="flex items-center justify-between my-4">
 						<h1 className="text-xl font-bold text-foreground">
-							Storage Providers
+							{dict.platform.storageProviders}
 						</h1>
 					</div>
 
 					<p className="max-w-prose text-sm text-muted-foreground my-6">
-						Connect storage providers directly from the dashboard - no manual
-						environment setup required.
+						{dict.platform.storageProvidersPageDescription}
 					</p>
 
 					<div className="grid gap-6 lg:grid-cols-2">
@@ -97,7 +67,6 @@ export default async function ProvidersPage() {
 						workspacePublicId={workspacePublicId}
 						volumes={vols}
 						provisioned={true}
-						providerSelectOptions={options}
 					/>
 				</div>
 			</div>

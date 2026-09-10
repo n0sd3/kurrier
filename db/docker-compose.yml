@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   web:
-    image: ghcr.io/kurrier-org/kurrier-web:v3.4.1
+    image: ghcr.io/kurrier-org/kurrier-web:v4.0.0
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
@@ -17,7 +17,7 @@ services:
       postgres:
         condition: service_healthy
   worker:
-    image: ghcr.io/kurrier-org/kurrier-worker:v3.4.1
+    image: ghcr.io/kurrier-org/kurrier-worker:v4.0.0
     build:
       context: ..
       dockerfile: apps/worker/Dockerfile

@@ -21,26 +21,51 @@ import {
 } from "lucide-react";
 
 import type { MessageEntity } from "@db";
+import type { Dictionary } from "@/lib/dictionaries";
 import type {
     InspectorView,
 } from "@/components/dashboard/inspector/inspector-views";
+import { useOptionalI18n } from "@/components/providers/dictionary-provider";
 
 export type {
     InspectorView,
 } from "@/components/dashboard/inspector/inspector-views";
 
+function getTabLabel(
+    dict: Dictionary | undefined,
+    key: string,
+    fallback: string,
+) {
+    const map: Record<string, string | undefined> = {
+        preview: dict?.mailbox?.tabPreview,
+        html: dict?.mailbox?.tabHtml,
+        plain: dict?.mailbox?.tabPlainText,
+        raw: dict?.mailbox?.tabRaw,
+        headers: dict?.mailbox?.tabHeaders,
+        smtp: dict?.mailbox?.tabSmtp,
+        json: dict?.mailbox?.tabJson,
+        delivery: dict?.mailbox?.tabDelivery,
+    };
+    return map[key] ?? fallback;
+}
+
 function PaneLoading({
+                         paneKey,
                          title,
                      }: {
+    paneKey: string;
     title: string;
 }) {
+    const i18n = useOptionalI18n();
+    const dict = i18n?.dict;
+    const label = getTabLabel(dict, paneKey, title);
     return (
         <InspectorPlaceholder
-            title={title}
-            description={`Loading ${title.toLowerCase()} inspection data…`}
+            title={label}
+            description={`${dict?.mailbox?.loadingPrefix ?? "Loading "}${label.toLowerCase()}${dict?.mailbox?.inspectionDataSuffix ?? " inspection data…"}`}
         >
             <div className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">
-                Loading…
+                {dict?.mailbox?.loadingEllipsis ?? "Loading…"}
             </div>
         </InspectorPlaceholder>
     );
@@ -53,7 +78,7 @@ const HtmlPane = dynamic(
             ),
     {
         ssr: true,
-        loading: () => <PaneLoading title="HTML" />,
+        loading: () => <PaneLoading paneKey="html" title="HTML" />,
     },
 );
 
@@ -65,7 +90,7 @@ const TextPane = dynamic(
     {
         ssr: true,
         loading: () => (
-            <PaneLoading title="Plain text" />
+            <PaneLoading paneKey="plain" title="Plain text" />
         ),
     },
 );
@@ -77,7 +102,7 @@ const RawPane = dynamic(
             ),
     {
         ssr: true,
-        loading: () => <PaneLoading title="Raw" />,
+        loading: () => <PaneLoading paneKey="raw" title="Raw" />,
     },
 );
 
@@ -89,7 +114,7 @@ const HeadersPane = dynamic(
     {
         ssr: true,
         loading: () => (
-            <PaneLoading title="Headers" />
+            <PaneLoading paneKey="headers" title="Headers" />
         ),
     },
 );
@@ -101,7 +126,7 @@ const SmtpPane = dynamic(
             ),
     {
         ssr: true,
-        loading: () => <PaneLoading title="SMTP" />,
+        loading: () => <PaneLoading paneKey="smtp" title="SMTP" />,
     },
 );
 
@@ -112,7 +137,7 @@ const JsonPane = dynamic(
             ),
     {
         ssr: true,
-        loading: () => <PaneLoading title="JSON" />,
+        loading: () => <PaneLoading paneKey="json" title="JSON" />,
     },
 );
 
@@ -124,7 +149,7 @@ const DeliveryPane = dynamic(
     {
         ssr: true,
         loading: () => (
-            <PaneLoading title="Delivery" />
+            <PaneLoading paneKey="delivery" title="Delivery" />
         ),
     },
 );
@@ -214,6 +239,9 @@ export default function InspectorBar({
                                          onRefresh,
                                          children,
                                      }: InspectorBarProps) {
+    const i18n = useOptionalI18n();
+    const dict = i18n?.dict;
+    const format = i18n?.format;
     const [internalValue, setInternalValue] = useState<InspectorView>("preview");
 
     const activeValue = value ?? internalValue;
@@ -238,12 +266,13 @@ export default function InspectorBar({
             onChange={handleChange}
             keepMounted={false}
         >
-            <div className="my-5 overflow-hidden rounded-xl border bg-card ">
+            <div className="my-4 overflow-hidden rounded-xl border bg-card sm:my-5">
                 <div className="border-b bg-muted/10">
                     <Tabs.List
                         classNames={{
                             list: [
-                                "flex flex-wrap border-0 px-2",
+                                "flex !flex-nowrap overflow-x-auto border-0 px-1 sm:!flex-wrap sm:px-2",
+                                "snap-x snap-mandatory overscroll-x-contain scroll-smooth sm:snap-none",
                                 "before:hidden",
                             ].join(" "),
                         }}
@@ -262,7 +291,7 @@ export default function InspectorBar({
                                     disabled={disabled}
                                     leftSection={tab.icon}
                                     className={[
-                                        "h-14 shrink-0 px-4",
+                                        "h-12 shrink-0 snap-start px-3 sm:h-14 sm:px-4",
                                         "text-muted-foreground",
                                         "transition-colors",
                                         "hover:bg-muted/30",
@@ -275,7 +304,7 @@ export default function InspectorBar({
                                         wrap="nowrap"
                                     >
                                         <span>
-                                            {tab.label}
+                                            {getTabLabel(dict, tab.value, tab.label)}
                                         </span>
 
                                         {tab.value ===
@@ -303,7 +332,7 @@ export default function InspectorBar({
                     </Tabs.List>
                 </div>
 
-                <div className="flex min-h-12 items-center justify-between gap-4 px-3 py-2">
+                <div className="flex min-h-12 flex-col items-stretch gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-2">
                     <div className="flex min-w-0 items-center gap-4 text-xs text-muted-foreground">
                         <div className="flex min-w-0 items-center gap-2">
                             <span
@@ -317,16 +346,16 @@ export default function InspectorBar({
 
                             <span className="truncate">
                                 {isParsed
-                                    ? "Message parsed successfully"
-                                    : "Message parsing incomplete"}
+                                    ? (dict?.mailbox?.messageParsedSuccessfully ?? "Message parsed successfully")
+                                    : (dict?.mailbox?.messageParsingIncomplete ?? "Message parsing incomplete")}
                             </span>
                         </div>
 
                         <div className="hidden items-center gap-3 md:flex">
                             <span>
                                 {rawSourceAvailable
-                                    ? "Raw source available"
-                                    : "Raw source unavailable"}
+                                    ? (dict?.mailbox?.rawSourceAvailable ?? "Raw source available")
+                                    : (dict?.mailbox?.rawSourceUnavailable ?? "Raw source unavailable")}
                             </span>
 
                             <span className="text-border">
@@ -334,7 +363,7 @@ export default function InspectorBar({
                             </span>
 
                             <span>
-                                {Object.keys(message?.headersJson || {}).length} headers
+                                {format?.message(Object.keys(message?.headersJson || {}).length, dict?.mailbox?.headersCount ?? { other: "{count} headers" }) ?? `${Object.keys(message?.headersJson || {}).length} headers`}
                             </span>
                         </div>
                     </div>
@@ -347,9 +376,9 @@ export default function InspectorBar({
                                 <Download className="size-3.5" />
                             }
                             onClick={onDownloadEml}
-                            className="hidden sm:inline-flex"
+                            className="w-full sm:w-auto"
                         >
-                            Download .eml
+                            {dict?.mailbox?.downloadEml ?? "Download .eml"}
                         </Button>
                     </div>
                 </div>

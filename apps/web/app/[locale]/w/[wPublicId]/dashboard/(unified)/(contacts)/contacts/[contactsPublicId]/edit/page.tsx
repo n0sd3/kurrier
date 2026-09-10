@@ -1,17 +1,26 @@
+import { type ContactCreate, ContactInsertSchema, contacts } from "@db";
+import {
+	type FormState,
+	getPublicEnv,
+	handleAction,
+} from "@schema";
+import { decode } from "decode-formdata";
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import React from "react";
 import NewContactForm from "@/components/dashboard/contacts/new-contact-form";
 import { isSignedIn } from "@/lib/actions/auth";
-import {FormState, getPublicEnv, handleAction} from "@schema";
-import { decode } from "decode-formdata";
-import { ContactCreate, ContactInsertSchema, contacts } from "@db";
-import {getWorkspacePublicId, rlsClient} from "@/lib/actions/clients";
-import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
-import {storageObjectUrl} from "@/lib/storage-object-access";
-import {getRedis} from "@/lib/actions/get-redis";
+import { getWorkspacePublicId, rlsClient } from "@/lib/actions/clients";
+import { getRedis } from "@/lib/actions/get-redis";
+import { storageObjectUrl } from "@/lib/storage-object-access";
+import { getDictionary, type Locale } from "@/lib/dictionaries";
 
-async function Page({ params }: { params: { contactsPublicId: string } }) {
-	const { contactsPublicId } = await params;
+async function Page({
+	params,
+}: {
+	params: { contactsPublicId: string; locale: Locale };
+}) {
+	const { contactsPublicId, locale } = await params;
 
 	const rls = await rlsClient();
 	const [contact] = await rls((tx) =>
@@ -19,15 +28,15 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 	);
 
 	if (!contact) {
+		const dict = await getDictionary(locale);
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-4 text-sm text-muted-foreground">
-				<p>No contact found.</p>
+				<p>{dict.contacts.noContactFound}</p>
 			</div>
 		);
 	}
 
 	const profilePictureUrl = storageObjectUrl(contact.profilePicture);
-
 
 	const user = await isSignedIn();
 	const publicConfig = getPublicEnv();
@@ -67,7 +76,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 			return { success: true, data: updatedContact };
 		});
 	};
-	const workspacePublicId = await getWorkspacePublicId()
+	const workspacePublicId = await getWorkspacePublicId();
 
 	return (
 		<NewContactForm

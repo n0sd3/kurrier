@@ -1,4 +1,13 @@
-ALTER TABLE "google_accounts" ADD COLUMN "error_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "google_accounts" ADD COLUMN "alerted_status" "google_account_status";--> statement-breakpoint
-ALTER TABLE "google_accounts" ADD COLUMN "last_alerted_at" timestamp with time zone;--> statement-breakpoint
-CREATE INDEX "ix_google_accounts_alerting" ON "google_accounts" USING btree ("status","alerted_status") WHERE "google_accounts"."status" <> 'connected';
+ALTER TYPE "public"."provider_kind" ADD VALUE 'mailtrap';
+INSERT INTO "providers" (
+    "owner_id",
+    "workspace_id",
+    "type"
+)
+SELECT DISTINCT
+    "owner_id",
+    "workspace_id",
+    'mailtrap'::"public"."provider_kind"
+FROM "providers"
+    ON CONFLICT ("owner_id", "type", "workspace_id")
+DO NOTHING;

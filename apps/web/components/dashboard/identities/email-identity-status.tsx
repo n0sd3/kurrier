@@ -1,3 +1,5 @@
+"use client";
+
 export const dynamic = "force-dynamic"; // or
 
 import React, { useEffect, useState } from "react";
@@ -7,6 +9,7 @@ import {
 	FetchUserIdentitiesResult,
 	getIdentityById,
 } from "@/lib/actions/dashboard";
+import { useOptionalDictionary } from "@/components/providers/dictionary-provider";
 
 const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 const GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
@@ -18,6 +21,7 @@ function EmailIdentityStatus({
 	userIdentity: FetchUserIdentitiesResult[number];
 	googleAccount?: FetchGoogleAccountsResultRow;
 }) {
+	const dict = useOptionalDictionary();
 	const [incoming, setIncoming] = useState<boolean>(false);
 	const evaluateStatus = async () => {
 		if (userIdentity.identities.domainIdentityId) {
@@ -57,8 +61,14 @@ function EmailIdentityStatus({
 
 	return (
 		<>
-			<IsVerifiedStatus verified={true} statusName="Outgoing" />
-			<IsVerifiedStatus verified={incoming} statusName="Incoming" />
+			<IsVerifiedStatus
+				verified={true}
+				statusName={dict?.platform?.outgoing ?? "Outgoing"}
+			/>
+			<IsVerifiedStatus
+				verified={incoming}
+				statusName={dict?.platform?.incoming ?? "Incoming"}
+			/>
 		</>
 	);
 }

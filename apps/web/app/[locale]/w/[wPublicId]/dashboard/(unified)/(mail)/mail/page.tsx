@@ -1,11 +1,21 @@
-import React from "react";
+import { Mail } from "lucide-react";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
+import Loading from "@/app/loading";
+import ContentPlaceholder from "@/components/common/content-placeholder";
+import DashboardPageHeader from "@/components/dashboard/dashboard-page-header";
 import { getWorkspacePublicId } from "@/lib/actions/clients";
 import { fetchIdentityMailboxList } from "@/lib/actions/mailbox";
+import { getDictionary, type Locale } from "@/lib/dictionaries";
 
-async function Page() {
+async function MailHomeContent({
+	params,
+}: {
+	params: Promise<{ locale: Locale }>;
+}) {
+	const { locale } = await params;
+	const dict = await getDictionary(locale);
+
 	// This route has no mailbox of its own. On desktop the sidebar is always
 	// visible so the user just picks one, but on mobile it is an off-canvas
 	// drawer — landing here without a mailbox would trap the user. Send them to
@@ -30,25 +40,25 @@ async function Page() {
 	// No identity has a mailbox yet (e.g. a freshly created workspace). Keep the
 	// placeholder, but with a header so the drawer stays reachable on mobile.
 	return (
-		<>
-			<header className="flex items-center gap-2 border-b bg-background/60 backdrop-blur py-3 px-4">
-				<SidebarTrigger className="-ml-1" />
-				<Separator
-					orientation="vertical"
-					className="data-[orientation=vertical]:h-4"
-				/>
-				<h1 className="text-sm font-semibold text-foreground/80">Mail</h1>
-			</header>
-
-			<div
-				className={
-					"flex flex-1 flex-col items-center justify-center p-4 text-center"
-				}
-			>
-				Select a mailbox to view the emails.
-			</div>
-		</>
+		<div className="flex min-h-0 flex-1 flex-col">
+			<DashboardPageHeader title={dict.mailbox.mailTitle} />
+			<ContentPlaceholder
+				icon={<Mail className="size-5" aria-hidden="true" />}
+				title={dict.mailbox.chooseMailbox}
+				description={dict.mailbox.selectMailboxDescription}
+			/>
+		</div>
 	);
 }
 
-export default Page;
+export default function Page({
+	params,
+}: {
+	params: Promise<{ locale: Locale }>;
+}) {
+	return (
+		<Suspense fallback={<Loading />}>
+			<MailHomeContent params={params} />
+		</Suspense>
+	);
+}

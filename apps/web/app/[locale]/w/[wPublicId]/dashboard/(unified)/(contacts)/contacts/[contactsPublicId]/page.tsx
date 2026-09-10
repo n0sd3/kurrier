@@ -25,9 +25,16 @@ import ContactListAvatar from "@/components/dashboard/contacts/contact-list-avat
 import {getRedis} from "@/lib/actions/get-redis";
 import {isSignedIn} from "@/lib/actions/auth";
 import {storageObjectUrl} from "@/lib/storage-object-access";
+import { getI18n } from "@/lib/dictionaries";
+import { cookies } from "next/headers";
 
 async function Page({ params }: { params: { contactsPublicId: string } }) {
 	const { contactsPublicId } = await params;
+	const cookieStore = await cookies();
+	const { dict, format } = await getI18n(
+		cookieStore.get("locale")?.value ?? "en",
+	);
+	const c = dict.contacts;
 
 	const rls = await rlsClient();
 	const [contact] = await rls((tx) =>
@@ -37,7 +44,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 	if (!contact) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-4 text-sm text-muted-foreground">
-				<p>No contact found.</p>
+				<p>{c.noContactFound}</p>
 			</div>
 		);
 	}
@@ -115,10 +122,10 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 
 	// §3 do contrato: campo vazio some da página, nada de placeholder.
 	const detailFields = [
-		{ icon: "@", label: "Primary email", value: emails[0]?.address ?? null },
-		{ icon: "☎", label: "Primary phone", value: phones.length ? formatPhone(phones[0]) : null },
-		{ icon: "🎂", label: "Birthday", value: dobLabel },
-		{ icon: "🏢", label: "Department", value: contact.department || null },
+		{ icon: "@", label: c.primaryEmail, value: emails[0]?.address ?? null },
+		{ icon: "☎", label: c.primaryPhone, value: phones.length ? formatPhone(phones[0]) : null },
+		{ icon: "🎂", label: c.birthday, value: dobLabel },
+		{ icon: "🏢", label: c.department, value: contact.department || null },
 	].filter((f) => f.value);
 
 	const workspacePublicId = await getWorkspacePublicId()
@@ -140,7 +147,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 									<ActionIcon
 										type="submit"
 										variant="subtle"
-										title="Toggle favorite"
+										title={c.toggleFavorite}
 										className="h-7 w-7 rounded-full bg-primary/5 text-amber-400 hover:bg-primary/10 dark:bg-primary/20 dark:hover:bg-primary/30"
 									>
 										<Star
@@ -197,7 +204,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 							<ActionIcon
 								size="sm"
 								variant="outline"
-								title="Edit contact"
+								title={c.editContact}
 								className="border-transparent bg-background/60 hover:bg-primary/5 dark:bg-background/80 dark:hover:bg-primary/15"
 							>
 								<IconEdit size={14} stroke={1.5} />
@@ -222,16 +229,16 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 								<span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/25">
 									<span className="h-1.5 w-1.5 rounded-full bg-primary" />
 								</span>
-								<span>Contact details</span>
+								<span>{c.contactDetails}</span>
 							</div>
 							{(emails.length > 0 || phones.length > 0) && (
 								<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-brand dark:bg-brand/25 dark:text-brand-foreground/90">
 									<span className="h-1.5 w-1.5 rounded-full bg-emerald-400 dark:bg-emerald-300" />
 									{emails.length > 0 && phones.length > 0
-										? "Email & phone on file"
+										? c.emailAndPhoneOnFile
 										: emails.length > 0
-											? "Email on file"
-											: "Phone on file"}
+											? c.emailOnFile
+											: c.phoneOnFile}
 								</span>
 							)}
 						</header>
@@ -259,7 +266,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 								{emails.length > 1 && (
 									<div className="space-y-2">
 										<p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-											All emails
+											{c.allEmails}
 										</p>
 										<ul className="space-y-1.5">
 											{emails.map((e, idx) =>
@@ -280,7 +287,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 								{phones.length > 1 && (
 									<div className="space-y-2">
 										<p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-											All phones
+											{c.allPhones}
 										</p>
 										<ul className="space-y-1.5">
 											{phones.map((p, idx) =>
@@ -310,12 +317,11 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 										<IconMap size={16} />
 									</span>
 									<span className={"text-brand dark:text-brand-foreground/90"}>
-										Addresses
+										{c.addresses}
 									</span>
 								</div>
 								<span className="text-[11px] text-muted-foreground/70">
-									{addresses.length}{" "}
-									{addresses.length === 1 ? "location" : "locations"}
+									{format.message(addresses.length, c.locationsCount)}
 								</span>
 							</header>
 
@@ -344,7 +350,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 												<span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 text-[10px] text-primary dark:bg-primary/25">
 													●
 												</span>
-												<span>Location {idx + 1}</span>
+												<span>{c.locationPrefix}{idx + 1}</span>
 											</div>
 											{lines}
 										</div>
@@ -362,7 +368,7 @@ async function Page({ params }: { params: { contactsPublicId: string } }) {
 									✎
 								</span>
 								<span className={"text-brand dark:text-brand-foreground/90"}>
-									Notes
+									{c.notes}
 								</span>
 							</h3>
 							{/* whitespace-pre-line: o NOTE do vCard carrega quebras de linha
