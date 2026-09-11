@@ -13,6 +13,14 @@ WORKDIR /repo/apps/worker
 ENV NITRO_PRESET=node-server
 RUN pnpm run build
 
+# nodemailer picks its transport with a require() keyed by a runtime string
+# (smtp-transport, ses-transport, ...), which node-file-trace can't follow —
+# nitro's traced copy above ends up missing those files. Overwrite it with
+# the real, complete package from this stage's own install.
+RUN NM_DIR="$(node -e "console.log(require.resolve('nodemailer/package.json').replace('/package.json',''))")" && \
+	rm -rf .output/server/node_modules/nodemailer && \
+	cp -r "$NM_DIR" .output/server/node_modules/nodemailer
+
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production

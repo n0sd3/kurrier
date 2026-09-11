@@ -5,9 +5,6 @@ import {
 	type MailboxThreadsNotification,
 } from "@/lib/realtime/listen-client";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 // Long enough to stay well clear of proxy idle timeouts (cloudflared cuts at
 // 100s), short enough that a dead connection is noticed quickly.
 const HEARTBEAT_MS = 25_000;
