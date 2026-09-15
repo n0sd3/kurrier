@@ -432,6 +432,44 @@ export default function EmailViewer({
 				${prepared.html}
 			</article>
 		`;
+
+		const root = shadow.querySelector(".email-root") as HTMLElement | null;
+		if (!root) return;
+
+		// Installed on a phone, the app runs in a standalone window with no
+		// address bar and no back gesture out of a page it navigated to. iOS
+		// does not honour target="_blank" there, so a tapped link replaces the
+		// mail view and traps the reader. Opening it through window.open hands
+		// the URL to a browser view the reader can dismiss instead.
+		//
+		// Neither iOS nor Android exposes a way to demand the browser *app*
+		// from a web page; long-pressing a link and choosing "Open in Safari"
+		// stays the only route to that.
+		const openExternally = (event: MouseEvent) => {
+			if (event.defaultPrevented || event.button !== 0) return;
+			if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+				return;
+
+			const anchor = event
+				.composedPath()
+				.find(
+					(node): node is HTMLAnchorElement =>
+						node instanceof HTMLAnchorElement && !!node.href,
+				);
+			if (!anchor) return;
+
+			// mailto:, tel: and in-message anchors belong to their own handlers —
+			// routing those through a browser window would break them.
+			if (!/^https?:$/.test(anchor.protocol)) return;
+
+			const opened = window.open(anchor.href, "_blank", "noopener,noreferrer");
+			// A blocked popup means no window was created, so the anchor's own
+			// navigation is the only thing left to fall back on.
+			if (opened) event.preventDefault();
+		};
+
+		root.addEventListener("click", openExternally);
+		return () => root.removeEventListener("click", openExternally);
 	}, [
 		prepared.html,
 		hideQuotes,

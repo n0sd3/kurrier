@@ -14,6 +14,7 @@ import {
 	toggleStar,
 } from "@/lib/actions/mailbox";
 import { resolveRowMailbox, type MailboxContextMap } from "@/lib/unified-mailbox";
+import type { MailboxKind } from "@schema";
 
 type Props = {
 	mailboxThreadItem: FetchMailboxThreadsResult[number];
@@ -22,6 +23,7 @@ type Props = {
 	labelsByThreadId: FetchMailboxThreadLabelsResult;
 	workspacePublicId?: string;
 	showAccount?: boolean;
+	viewKind?: MailboxKind;
 };
 
 import { Temporal } from "@js-temporal/polyfill";
@@ -49,6 +51,7 @@ export default function WebmailListItem({
 	labelsByThreadId,
 	workspacePublicId,
 	showAccount = false,
+	viewKind,
 }: Props) {
 	const dict = useOptionalDictionary();
 
@@ -163,9 +166,11 @@ export default function WebmailListItem({
 	const isOnSnoozedPage = pathname.split("/").includes("snoozed");
 
 	const openThread = async () => {
-		const url = pathname.match("/dashboard/mail")
-			? `/w/${workspacePublicId}/dashboard/mail/${rowIdentityPublicId}/${rowMailbox?.slug}/threads/${mailboxThreadItem.threadId}`
-			: `/mail/${rowIdentityPublicId}/${rowMailbox?.slug}/threads/${mailboxThreadItem.threadId}`;
+		const url = viewKind
+			? `/w/${workspacePublicId}/dashboard/mail/all/${viewKind}/threads/${mailboxThreadItem.threadId}`
+			: pathname.match("/dashboard/mail")
+				? `/w/${workspacePublicId}/dashboard/mail/${rowIdentityPublicId}/${rowMailbox?.slug}/threads/${mailboxThreadItem.threadId}`
+				: `/mail/${rowIdentityPublicId}/${rowMailbox?.slug}/threads/${mailboxThreadItem.threadId}`;
 
 		// TODO: Fix full page reload on snoozed page, hoist @thread layout to higher level
 		if (isOnSnoozedPage) {

@@ -97,6 +97,7 @@ export default function WebmailList({
 										globalLabels={globalLabels}
 										labelsByThreadId={labelsByThreadId}
 										showAccount={isUnified}
+										viewKind={isUnified ? viewKind : undefined}
 									/>
 								))}
 							</ul>

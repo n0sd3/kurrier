@@ -166,3 +166,48 @@ export const fetchUnifiedThreadCount = cache(
 		return Number(row?.total ?? 0);
 	},
 );
+
+/**
+ * Resolves the account and folder a thread belongs to from the thread alone.
+ *
+ * The unified list opens a thread through an intercepting route, and Next.js
+ * resolves an interception against the URL the reader is standing on — here
+ * "/mail/all/<kind>" — not the destination being opened. The account segment
+ * is therefore the literal "all", so the panel cannot read its context out of
+ * params the way the per-account route does; it reads it off the row instead.
+ *
+ * Scoped by kind because a thread can sit in more than one folder, and the
+ * unified view should open the copy belonging to the folder being read.
+ */
+export const fetchUnifiedThreadContext = cache(
+	async (kind: UnifiedMailboxKind, threadId: string) => {
+		const rls = await rlsClient();
+
+		const [row] = await rls((tx) =>
+			tx
+				.select({
+					mailbox: mailboxes,
+					identityPublicId: mailboxThreads.identityPublicId,
+					sync: mailboxSync,
+				})
+				.from(mailboxThreads)
+				.innerJoin(mailboxes, eq(mailboxes.id, mailboxThreads.mailboxId))
+				.leftJoin(mailboxSync, eq(mailboxSync.mailboxId, mailboxes.id))
+				.where(
+					and(
+						eq(mailboxThreads.threadId, threadId),
+						eq(mailboxes.kind, kind),
+					),
+				)
+				.limit(1),
+		);
+
+		if (!row) return null;
+
+		return {
+			mailbox: row.mailbox,
+			identityPublicId: row.identityPublicId,
+			sync: row.sync ?? null,
+		};
+	},
+);

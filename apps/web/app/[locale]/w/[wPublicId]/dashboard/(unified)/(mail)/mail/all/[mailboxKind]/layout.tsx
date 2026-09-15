@@ -15,11 +15,13 @@ const TITLE: Record<string, string> = {
 
 type LayoutProps = {
 	children: ReactNode;
+	thread: ReactNode;
 	params: Promise<{ mailboxKind: string }>;
 };
 
 export default async function UnifiedMailLayout({
 	children,
+	thread,
 	params,
 }: LayoutProps) {
 	const { mailboxKind } = await params;
@@ -51,6 +53,7 @@ export default async function UnifiedMailLayout({
 				</Suspense>
 			</header>
 
+			{thread}
 			{children}
 		</>
 	);
