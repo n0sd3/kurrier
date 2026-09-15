@@ -13,13 +13,29 @@ const defaultLocale = DISTRIBUTION_CONFIG.defaultLocale;
 function normalizeLocale(tag: string): string | null {
 	const lower = tag.toLowerCase();
 	const exact = locales.find((l) => l.toLowerCase() === lower);
+
 	if (exact) return exact;
+
 	const primary = lower.split("-")[0];
-	return locales.find((l) => l.toLowerCase().split("-")[0] === primary) ?? null;
+
+	return locales.find(
+		(l) => l.toLowerCase().split("-")[0] === primary,
+	) ?? null;
 }
 
-function detectLocale(request: NextRequest) {
+function getRedirectLocale(request: NextRequest) {
+	const pathname = request.nextUrl.pathname;
+
+	const pathnameHasLocale = locales.some(
+		(locale) =>
+			pathname === `/${locale}` ||
+			pathname.startsWith(`/${locale}/`),
+	);
+
+	if (pathnameHasLocale) return null;
+
 	const cookieLocale = request.cookies.get("locale")?.value;
+
 	const acceptLanguageTag = request.headers
 		.get("accept-language")
 		?.split(",")[0];
@@ -32,51 +48,59 @@ function detectLocale(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
-	if (request.nextUrl.pathname.startsWith("/api")) {
+	const pathname = request.nextUrl.pathname;
+
+	if (pathname.startsWith("/api")) {
 		return await updateSession(request);
 	}
 
-	const pathname = request.nextUrl.pathname;
+	// Distribution extension routes (registered pages outside the localized
+	// /[locale] tree, e.g. the marketing/landing routes) render their own
+	// layout and don't need locale resolution here.
+	if (pathname === "/distribution" || pathname.startsWith("/distribution/")) {
+		return await updateSession(request);
+	}
+
 	const pathnameHasLocale = locales.some(
 		(locale) =>
 			pathname === `/${locale}` ||
 			pathname.startsWith(`/${locale}/`),
 	);
 
-	// A bare "/" or "/<locale>" resolves its destination in app/[locale]/page.tsx,
-	// but that redirect only runs on hydration, so the 404 shell flashes first.
-	// Signed-out visitors need no lookup, so send them straight to login. This
-	// has to be checked before the locale rewrite below: a rewrite resolves
-	// internally without re-entering this middleware, so a bare "/" would
-	// otherwise skip this shortcut entirely.
-	const isLocaleRoot =
-		pathname === "/" || locales.some((locale) => pathname === `/${locale}`);
-
-	if (isLocaleRoot && !request.cookies.get("session")) {
-		const locale = pathnameHasLocale ? pathname.slice(1) : detectLocale(request);
-		const url = request.nextUrl.clone();
-		url.pathname = `/${locale}/auth/login`;
-		return NextResponse.redirect(url);
+	if (pathnameHasLocale) {
+		// Stamp the resolved locale on a request header so Server Components
+		// can read it ambiently via lib/locale.ts's getLocale(), without
+		// needing params.locale threaded down to them.
+		const locale = pathname.split("/")[1];
+		return await updateSession(request, { [LOCALE_HEADER]: locale });
 	}
 
-	if (!pathnameHasLocale) {
-		// Internal links/redirects across the app are built without a locale
-		// prefix (e.g. "/w/{id}/dashboard/..."). Rewriting instead of
-		// redirecting resolves those in a single request instead of bouncing
-		// the browser through an extra 3xx round trip on every navigation.
-		const locale = detectLocale(request);
-		const url = request.nextUrl.clone();
-		url.pathname = `/${locale}${pathname}`;
-		const headers = new Headers(request.headers);
-		headers.set(LOCALE_HEADER, locale);
-		return NextResponse.rewrite(url, { request: { headers } });
+	const requiresLocale =
+		pathname === "/auth" ||
+		pathname.startsWith("/auth/") ||
+		pathname === "/w" ||
+		pathname.startsWith("/w/");
+
+	if (requiresLocale) {
+		const redirectLocale = getRedirectLocale(request);
+
+		if (redirectLocale) {
+			const url = request.nextUrl.clone();
+			url.pathname = `/${redirectLocale}${pathname}`;
+
+			return NextResponse.redirect(url);
+		}
+
+		return await updateSession(request);
 	}
 
-	// Stamp the resolved locale on a request header so Server Components can
-	// read it ambiently via lib/locale.ts's getLocale(), without needing
-	// params.locale threaded down to them.
-	const locale = pathname.split("/")[1];
-	return await updateSession(request, { [LOCALE_HEADER]: locale });
+	// Everything else (e.g. a bare "/") is an extension/distribution route
+	// rather than part of the localized app tree, so it's handed off to the
+	// distribution catch-all instead of getting a locale prefix.
+	const url = request.nextUrl.clone();
+	url.pathname = pathname === "/" ? "/distribution" : `/distribution${pathname}`;
+
+	return NextResponse.rewrite(url);
 }
 
 export const config = {

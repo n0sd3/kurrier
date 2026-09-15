@@ -36,7 +36,7 @@ ARG TYPESENSE_PORT=1234
 ARG TYPESENSE_PROTOCOL=http
 ARG TYPESENSE_HOST=placeholder
 ARG SEARCH_REBUILD_ON_BOOT=false
-ARG WORKER_URL=http://worker
+ARG WORKER_URL=http://worker:3001
 ARG API_URL=http://kong:8000
 ARG DAV_URL=http://dav:80
 ARG JWT_SECRET=placeholder
@@ -82,6 +82,12 @@ RUN pnpm run build
 # -----------------------------
 FROM node:22-alpine
 WORKDIR /app
+
+RUN apk add --no-cache postgresql-client bash
+COPY db/init/db-bootstrap.sh /scripts/db-bootstrap.sh
+COPY db/init/migrations /scripts/migrations
+RUN chmod +x /scripts/db-bootstrap.sh
+
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000

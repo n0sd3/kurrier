@@ -13,7 +13,7 @@ import {
 	Send,
 	Users,
 	Vault,
-	Webhook,
+	Webhook
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,19 +35,31 @@ import {
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
+import {DashboardNavItem} from "@extensions";
 
 export function NavMain({
 	workspacePublicId,
 	workspaceRole,
 	isInstanceAdmin,
+	extensionNavItems,
 }: {
 	workspacePublicId?: string;
 	workspaceRole?: string;
 	isInstanceAdmin?: boolean;
+	extensionNavItems: DashboardNavItem[];
 }) {
 	const pathname = usePathname();
 	const dict = useDictionary();
 	const { drive } = useSiteFeatures();
+
+	const extensionPlatformItems = extensionNavItems
+		.filter((item) => !item.ownerOnly || workspaceRole === "owner")
+		.map((item) => ({
+			title: item.title,
+			url: `/w/${workspacePublicId}/dashboard/${item.path}`,
+			icon: item.icon ?? Blocks,
+			items: [],
+		}));
 
 	const navPlatformItems: {
 		title: string;
@@ -137,6 +149,7 @@ export function NavMain({
 				},
 			]
 			: []),
+		...extensionPlatformItems,
 	];
 
 	return (

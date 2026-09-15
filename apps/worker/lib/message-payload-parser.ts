@@ -30,7 +30,10 @@ type SearchJob = {
 	contactId: string | null;
 	ownerId?: string;
 };
-type WebhookJob = { message: any; rawEmail: string };
+type WebhookJob = {
+	messageId: string;
+	rawStorageKey: string;
+};
 type PushJob = {
 	ownerId: string;
 	mailboxId: string;
@@ -105,8 +108,12 @@ async function flushBatches() {
 			const jobs = webhookBuffer.map((job) => ({
 				name: "webhook:message.received",
 				data: {
-					message: job.message,
-					rawEmail: job.rawEmail,
+					messageId: job.messageId,
+					rawStorageKey: job.rawStorageKey,
+				},
+				opts: {
+					removeOnComplete: true,
+					removeOnFail: true,
 				},
 			}));
 
@@ -579,8 +586,13 @@ export async function parseAndStoreEmail(
 	}
 
 	if (mode === "live") {
-		webhookBuffer.push({ message, rawEmail });
+		webhookBuffer.push({
+			messageId: message.id,
+			rawStorageKey,
+		});
+
 		rulesBuffer.push({ messageId: message.id });
+
 		// Intentionally NOT filtering to mailboxKind === "inbox" here: doing so
 		// would require a mailbox lookup inside this hot ingestion path for
 		// every live message. Every live message is buffered regardless of
@@ -598,7 +610,11 @@ export async function parseAndStoreEmail(
 			subject: message.subject,
 			from: message.from,
 		});
-		if ((webhookBuffer.length >= WEBHOOK_BATCH_SIZE) || (rulesBuffer.length >= RULES_BATCH_SIZE)) {
+
+		if (
+			webhookBuffer.length >= WEBHOOK_BATCH_SIZE ||
+			rulesBuffer.length >= RULES_BATCH_SIZE
+		) {
 			await flushBatches();
 		} else {
 			scheduleFlush();
