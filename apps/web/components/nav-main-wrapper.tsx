@@ -14,7 +14,19 @@ async function NavMainWrapper() {
         isCurrentUserInstanceAdmin(),
     ]);
 
-    const extensionNavItems = kurrierWeb.navigation.dashboard();
+    // A LucideIcon is a component (a function), and functions can't cross the
+    // server/client boundary as props. Rendering it into an element here,
+    // before it reaches the client NavMain, is what makes it serializable.
+    const extensionNavItems = kurrierWeb.navigation.dashboard().map((item) => {
+        const Icon = item.icon;
+        return {
+            id: item.id,
+            title: item.title,
+            path: item.path,
+            ownerOnly: item.ownerOnly,
+            icon: Icon ? <Icon className="mt-0.5" /> : null,
+        };
+    });
 
     return (
         <NavMain

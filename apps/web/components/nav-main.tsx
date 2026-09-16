@@ -8,7 +8,6 @@ import {
 	HardDrive,
 	Key,
 	LayoutDashboard,
-	type LucideIcon,
 	Plug,
 	Send,
 	Users,
@@ -35,7 +34,15 @@ import {
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import {DashboardNavItem} from "@extensions";
+import type { ReactNode } from "react";
+
+type ResolvedDashboardNavItem = {
+	id: string;
+	title: string;
+	path: string;
+	ownerOnly?: boolean;
+	icon: ReactNode;
+};
 
 export function NavMain({
 	workspacePublicId,
@@ -46,7 +53,7 @@ export function NavMain({
 	workspacePublicId?: string;
 	workspaceRole?: string;
 	isInstanceAdmin?: boolean;
-	extensionNavItems: DashboardNavItem[];
+	extensionNavItems: ResolvedDashboardNavItem[];
 }) {
 	const pathname = usePathname();
 	const dict = useDictionary();
@@ -57,26 +64,26 @@ export function NavMain({
 		.map((item) => ({
 			title: item.title,
 			url: `/w/${workspacePublicId}/dashboard/${item.path}`,
-			icon: item.icon ?? Blocks,
+			icon: item.icon ?? <Blocks className="mt-0.5" />,
 			items: [],
 		}));
 
 	const navPlatformItems: {
 		title: string;
 		url: string;
-		icon: LucideIcon;
+		icon: ReactNode;
 		items?: { title: string; url: string }[];
 	}[] = [
 		{
 			title: dict.dashboard.overview,
 			url: `/w/${workspacePublicId}/dashboard/platform/overview`,
-			icon: LayoutDashboard,
+			icon: <LayoutDashboard className="mt-0.5" />,
 			items: [],
 		},
 		{
 			title: "Notifications",
 			url: `/w/${workspacePublicId}/dashboard/platform/notifications`,
-			icon: Bell,
+			icon: <Bell className="mt-0.5" />,
 			items: [],
 		},
 		...(workspaceRole === "owner"
@@ -84,13 +91,13 @@ export function NavMain({
 					{
 						title: dict.platform.providers,
 						url: `/w/${workspacePublicId}/dashboard/platform/providers`,
-						icon: Plug,
+						icon: <Plug className="mt-0.5" />,
 						items: [],
 					},
 					{
 						title: dict.platform.identities,
 						url: `/w/${workspacePublicId}/dashboard/platform/identities`,
-						icon: Send,
+						icon: <Send className="mt-0.5" />,
 						items: [],
 					},
 				]
@@ -100,7 +107,7 @@ export function NavMain({
 					{
 						title: dict.platform.workspace,
 						url: `/w/${workspacePublicId}/dashboard/platform/workspace`,
-						icon: Blocks,
+						icon: <Blocks className="mt-0.5" />,
 						items: [],
 					},
 					...(drive
@@ -108,7 +115,7 @@ export function NavMain({
 								{
 									title: dict.platform.storage,
 									url: `/w/${workspacePublicId}/dashboard/platform/storage`,
-									icon: HardDrive,
+									icon: <HardDrive className="mt-0.5" />,
 									items: [],
 								},
 							]
@@ -116,25 +123,25 @@ export function NavMain({
 					{
 						title: dict.vault.vault,
 						url: `/w/${workspacePublicId}/dashboard/platform/vault`,
-						icon: Vault,
+						icon: <Vault className="mt-0.5" />,
 						items: [],
 					},
 					{
 						title: dict.platform.apiKeys,
 						url: `/w/${workspacePublicId}/dashboard/platform/api-keys`,
-						icon: Key,
+						icon: <Key className="mt-0.5" />,
 						items: [],
 					},
 					{
 						title: dict.platform.webhooks,
 						url: `/w/${workspacePublicId}/dashboard/platform/webhooks`,
-						icon: Webhook,
+						icon: <Webhook className="mt-0.5" />,
 						items: [],
 					},
 					{
 						title: dict.platform.syncServices,
 						url: `/w/${workspacePublicId}/dashboard/platform/sync-services`,
-						icon: FolderSync,
+						icon: <FolderSync className="mt-0.5" />,
 						items: [],
 					},
 				]
@@ -144,7 +151,7 @@ export function NavMain({
 				{
 					title: "Instance Users",
 					url: `/w/${workspacePublicId}/dashboard/platform/users`,
-					icon: Users,
+					icon: <Users className="mt-0.5" />,
 					items: [],
 				},
 			]
@@ -169,7 +176,7 @@ export function NavMain({
 									className="h-auto min-h-8 items-start py-1.5 [&>span:last-child]:!overflow-visible [&>span:last-child]:!whitespace-normal [&>span:last-child]:!text-clip"
 								>
 									<Link href={item.url}>
-										<item.icon className="mt-0.5" />
+										{item.icon}
 										<span className="min-w-0 break-words leading-5">
 											{item.title}
 										</span>
